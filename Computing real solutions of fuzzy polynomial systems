@@ -1,0 +1,317 @@
+def binary_base(number):
+    
+    L = list()
+    if number == 0 :
+        return [0]
+
+    while number != 0:
+        if number %2 == 0:
+            number /=2
+            L.append(0)
+        else :
+            number -=1
+            number /=2
+            L.append(1)
+    L.reverse()
+    return L
+    
+def signes_possibles(n):
+    L=list()
+    LL=list()
+    for i in range(2**n):
+        L=binary_base(i)
+        
+        if(size(L)!=n):
+            L.reverse()
+            L.extend([0 for i in range(n-size(L))])
+            L.reverse()
+            
+        
+        for j in range (size(L)):
+            if L[j]==0:
+                L[j]=-1
+        
+        LL.append(L)
+        
+        
+    return LL
+    
+def systeme_signes(M,S):
+    
+    Systemes_signes = list()
+    
+    for signe_possible in S :
+        
+        System = list()
+        
+        for couple in M :
+            for liste in couple:
+                for element in liste :
+                    print(element)
+                    f = symbolic_expression(element[1])
+            
+                    variable = -1
+        
+                    while(f != 1 and f != -1):
+                        
+                        variable +=1
+                
+                        print(signe_possible[variable])
+                        f = f(signe_possible[variable])
+        
+                    if f == 1 :
+            
+                        Monome_signe = element[0]
+            
+                    else :
+                
+                        Monome_signe = element[0]*(-1)
+            
+                    System.append(Monome_signe)
+        
+        Systemes_signes.append(System)
+        
+    return Systemes_signes          
+
+def reconstruction_systems(M,r):
+    
+    Systems = list()
+    
+    for liste_coeff in r :
+        coeff = -1
+        System = list()
+        for couple in M :
+            Tuple = list()
+                   
+            for liste in couple:
+                eq = 0
+                for element in liste :
+                    print(element[1])
+                    coeff +=1
+                    print(liste_coeff[coeff])
+                    
+                            
+                    eq += liste_coeff[coeff] * element[1]
+                            
+                
+            
+                Tuple.append(eq)
+        
+            Tuple_final = tuple(Tuple)
+            System.append(Tuple_final)
+    
+        Systems.append(System)
+    return Systems   
+    
+def solutions_signees(nb_variables,systeme_depart):
+    
+    
+    S=signes_possibles(nb_variables)
+    
+    r=systeme_signes(systeme_depart,S)
+    
+    Systemes_signes = reconstruction_systems(systeme_depart,r)
+    
+    RES = list()
+
+    for system in Systemes_signes:
+    
+        RES.append(solveFuzzyPolynomialSystem(system,"Quad"))
+    
+    return RES
+    
+def MultiSigne(j,n):
+    
+    if(j < 2**n):
+    
+        I=binary_base(j)
+        
+        if(len(I)!=n):
+            I.reverse()
+            I.extend([0 for i in range(n-size(I))])
+            I.reverse()
+              
+        for i in range (len(I)):
+            if I[i]==0:
+                I[i]=-1
+        
+        return I
+        
+def get_terms(System):
+
+    Terms = list()
+
+    for couple in System :
+            for liste in couple:
+                for element in liste :
+                    term = symbolic_expression(element[1])
+                    #print(element[1].parent())
+                    Terms.append(term)
+
+    return Terms
+    
+def colonne_signee(Terms, I):
+
+    C = list()
+    for term in Terms:
+        variable_en_cours_devaluation = -1
+
+        while(term != 1 and term != -1):
+
+            variable_en_cours_devaluation +=1
+
+            term = term(I[variable_en_cours_devaluation])
+
+        #term = Integer(term)
+        C.append(term)
+    return C
+    
+def reconstruction_systems(System,I):
+    
+    Terms = get_terms(System)
+    #print(Terms)
+    liste_signes = colonne_signee(Terms, I)
+    #print(liste_signes)
+    signe = -1
+    System_signe = list()
+    for couple in System :
+        Tuple = list()
+        eq1 = eq2 = eq3 = 0
+        numero_liste = 0 # c'est la première liste du couple OU la deuxième
+                   
+        for liste in couple:
+            
+            numero_liste += 1
+            
+            for element in liste :
+                #print(element[1].parent())
+                signe +=1
+                #print(liste_signes[signe])
+                    
+                #(numero_liste * (-2) + 3) : si numero_liste = 1 -> 1 et si = 2 -> -1, i.e. on passe le terme de droite de l'autre côté de l'équation            
+                eq1 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_mode() * element[1]
+                #print(eq1.parent())
+                eq2 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_leftSpread() * element[1]
+                
+                eq3 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_rightSpread() * element[1]
+         
+        #p1 = eq1.polynomial(QQ,order ='invlex')
+        #p2 = eq2.polynomial(QQ,order ='invlex')
+        #p3 = eq3.polynomial(QQ,order ='invlex')
+
+        System_signe.append(eq1)
+        System_signe.append(eq2)
+        System_signe.append(eq3)
+
+    return System_signe
+    
+def listes_comparaison(c1, c2):
+    """
+    Fonction comparant les valeurs contenues dans deux tableaux deux à deux. La première valeur de c1 avec
+    celle de c2, puis la 2ème de c1 avec la deuxième de c2 etc...
+    """
+
+    if len(c1) != len(c2):
+        return False
+    
+    else:
+    
+        for valeur_c1, valeur_c2 in zip(c1, c2):
+            # si la valeur de c1 est différente de c2
+            if valeur_c1 != valeur_c2:
+                return False  # Les tableaux ne sont pas identiques
+        # S'il n'y a pas eu de discordance entre les deux listes, on arrive ici et on revoie donc True
+        return True
+        
+def liste_deja_connue(L, ens_listes):
+    
+    for liste in ens_listes:
+        if listes_comparaison(L,liste) == True:
+            return True
+        
+    return False
+    
+def NouveauSysteme(systeme_SI, liste_systemes):
+    """Indique si le système systeme_SI est déjà présent dans la liste de systèmes liste_systemes"""
+    
+    systeme_SI = normalise_systeme(systeme_SI)
+    
+    cpt = -1
+    
+    ens_systeme_SI = set(systeme_SI)
+    
+    for systeme in liste_systemes:
+        cpt += 1
+        ens_systemes = set(systeme)
+        
+        if (ens_systeme_SI & ens_systemes) == (ens_systeme_SI | ens_systemes):
+            
+            return cpt
+    
+    
+    return -1        
+ 
+def normalise_systeme(Systeme):
+    
+    systeme_normalise = list()
+    
+    for equation in Systeme:
+        if equation.lc()/abs(equation.lc())==1:
+            systeme_normalise.append(equation)
+        else:
+            systeme_normalise.append(-1*equation)
+
+    return systeme_normalise
+    
+def resolution_reelle_systemes_flous(System, n):
+    
+    continue_boucle_principale = 0
+    
+    cpt = -1
+    
+    b = list()
+    
+    sol = list()
+    
+    DistinctColonnes = list()
+    
+    ListeSystemes = list()
+    
+    for j in range (2**n):
+        
+        continue_boucle_principale = 0
+        
+        print(DistinctColonnes)
+        print(ListeSystemes)
+        
+        I = MultiSigne(j,n)
+        
+        Terms = get_terms(System)
+        C = colonne_signee(Terms, I)
+        
+        for i in range(cpt):
+            if listes_comparaison(C,DistinctColonnes[i]):
+                sol.insert(j,0)
+                continue_boucle_principale = 1
+                break
+                
+        if continue_boucle_principale == 1 : continue                
+        
+        cpt += 1
+        #print(cpt)
+        DistinctColonnes.insert(cpt, C)
+        SI = reconstruction_systems(System,I)
+        
+        i = NouveauSysteme(SI,ListeSystemes)
+        
+        if i== -1:
+            SI = normalise_systeme(SI)
+            ListeSystemes.append(SI)   
+            b.insert(cpt, 0)
+            sol.insert(j, 0)
+            
+        else:
+            b.insert(cpt,sol[i])
+            sol.insert(j,sol[i])
+            
+    return sol
