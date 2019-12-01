@@ -1,0 +1,1126 @@
+# Bibliothèque Fuzzy
+
+# Modélisation de nombres flous et résolution de systèmes de polynômes à coefficients flous triangulaires ou réels
+
+# Auteur : Jérémy Marrez
+
+%matplotlib inline
+import matplotlib.pyplot as plt # side-stepping mpl backend
+import matplotlib.gridspec as gridspec # subplots
+
+# Make a legend for specific lines.
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import *
+
+from sage.all import *
+
+A = QQ['r']
+r = A.gen()
+A
+
+ajout = 1
+
+from operator import truediv
+
+class NombreFlou :
+    """Cette classe permet de créer et de manipuler des nombres flous non réduits (noyau = [leftMode, rightMode])"""
+
+    
+    def __init__(self, leftMode, rightMode, leftSpread, rightSpread, leftType, rightType) :
+        
+        """Constructeur de NombreFlou.
+        leftMode : la borne gauche du noyau du nombre flou
+        rightMode : la borne droite du noyau du nombre flou
+        leftSpread : la propagation du nombre flou à gauche du noyau
+        rightSpread : la propagation du nombre flou à droite du noyau
+        leftType : le type de la restriction de la fontion d'appartenance à gauche du noyau
+        rightType : le type de la restriction de la fontion d'appartenance à droite du noyau
+        """
+        
+        self.leftMode = leftMode
+        self.rightMode = rightMode
+        
+        self.leftSpread = leftSpread
+        self.rightSpread = rightSpread 
+        
+        self. leftType = leftType
+        self.rightType = rightType
+    
+    def __str__(self) :
+        
+        """Affiche le nombre flou sous la forme du quadruplet (tuple)
+        (leftMode, rightMode, leftSpread, rightSpread) et précise sa famille"""
+        
+        return "({0},{1},{2},{3}), {4} - {5}".format(self.leftMode, self.rightMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
+    
+    def famillesEgales(self, autre):
+        
+        """Vérifie si les familles de self et autre sont les mêmes"""
+        
+        if(self.leftType == autre.leftType) and (self.rightType == autre.rightType):
+            
+            return True
+        
+        else:
+            
+            return False
+        
+    def famillesSymetriques(self, autre):
+        
+        """Vérifie si les familles de self et autre sont symétriques"""
+        
+        if(self.leftType == autre.rightType) and (self.rightType == autre.leftType):
+            
+            return True
+        
+        else:
+            
+            return False
+    
+    def __neg__(self) :
+        
+        """Renvoie l'opposé du nombre flou passé en entrée"""
+        
+        return NombreFlou(-self.rightMode,\
+                          -self.leftMode,\
+                          self.rightSpread,\
+                          self.leftSpread,\
+                          self.rightType,\
+                          self.leftType)
+        
+    def __add__(self, autre) :
+        
+        """Redéfinition de +"""
+        
+        if isinstance(autre,NombreFlouPM) : # si autre est un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique()
+            
+            return nbPM + autre
+        
+        elif isinstance(autre,np.ndarray) : # si autre est un tableau, on effectue l'opération avec self sous forme paramétrique
+                                                # et on renvoie un tableau des fonctions haut et bas
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab + autre
+        
+        elif isinstance(autre,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense):
+            global ajout
+            ajout = (ajout +1)%2
+            
+            nbPM = self.forme_parametrique(A)
+            
+            if(ajout==0):
+                return nbPM.bas + autre
+            
+            if(ajout==1):
+                return nbPM.haut + autre
+        
+        else :
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+                
+            else :
+                return NombreFlou(self.leftMode + autre.leftMode,\
+                          self.rightMode + autre.rightMode,\
+                          self.leftSpread + autre.leftSpread,\
+                          self.rightSpread + autre.rightSpread,\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __radd__(self, autre):
+        
+        return self + autre      
+    
+    def __sub__(self,autre) :
+        
+        """Redéfinition de -"""                
+            
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+
+            return self + -autre
+        
+    def __mul__(self, autre) :
+        
+        """Redéfinition de *"""
+        
+        if not isinstance(autre,NombreFlou) : # si autre n'est pas un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab*autre
+        
+        else :
+            
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            
+            else :
+                 
+                return NombreFlou(min(self.leftMode*autre.leftMode,self.leftMode*autre.rightMode,self.rightMode*autre.leftMode,\
+                          self.rightMode*autre.rightMode),max(self.leftMode*autre.leftMode,self.leftMode*autre.rightMode,\
+                          self.rightMode*autre.leftMode, self.rightMode*autre.rightMode),\
+                          (abs(self.leftMode) * autre.leftSpread) + (abs(autre.leftMode) * self.leftSpread),\
+                          (abs(self.rightMode) * autre.rightSpread) + (abs(autre.rightMode) * self.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __rmul__(self, autre):
+        
+        return self * autre
+        
+    def __invert__(self) :
+        """Renvoie l'inverse du nombre flou passé en entrée"""
+        
+        if self.leftMode.denominator()**2 == self.leftSpread.denominator() :
+            inverse = NombreFlou(min(1/self.leftMode,1/self.rightMode),\
+                                 max(1/self.leftMode,1/self.rightMode),\
+                                 self.rightSpread / (self.rightMode**2),\
+                                 self.leftSpread / (self.leftMode**2),\
+                                 self.rightType,\
+                                 self.leftType)
+        else :
+            inverse = NombreFlou(min(1/self.leftMode,1/self.rightMode),\
+                                 max(1/self.leftMode,1/self.rightMode),\
+                                 self.rightSpread / (self.leftMode**2),\
+                                 self.leftSpread / (self.rightMode**2),\
+                                 self.rightType,\
+                                 self.leftType)
+            
+        return inverse
+        
+    def __div__(self,autre) :
+        
+        """Redéfinition de /"""
+        
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+
+            return self * ~autre
+    
+    def maxi(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le max de deux nombres flous"""
+        
+        if nombreFlou2.rightMode > nombreFlou1.rightMode :
+            print("etape 1")
+            return nombreFlou2
+        
+        elif nombreFlou1.rightMode == nombreFlou2.rightMode :
+            print("etape 2")
+            return NombreFlou(max(nombreFlou1.leftMode , nombreFlou2.leftMode),\
+                          max(nombreFlou1.rightMode , nombreFlou2.rightMode),\
+                          min(nombreFlou1.leftSpread , nombreFlou2.leftSpread),\
+                          max(nombreFlou1.rightSpread , nombreFlou2.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        else :
+            print("etape 3")
+            return nombreFlou1
+        
+    maxi = classmethod(maxi)
+ 
+    def mini(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le min de deux nombres flous"""
+        
+        if nombreFlou2.leftMode > nombreFlou1.leftMode :
+            
+            return nombreFlou1
+        
+        elif nombreFlou1.leftMode == nombreFlou2.leftMode :
+
+            return NombreFlou(min(nombreFlou1.leftMode , nombreFlou2.leftMode),\
+                          min(nombreFlou1.rightMode , nombreFlou2.rightMode),\
+                          max(nombreFlou1.leftSpread , nombreFlou2.leftSpread),\
+                          min(nombreFlou1.rightSpread , nombreFlou2.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        else :
+            
+            return nombreFlou2
+        
+    mini = classmethod(mini)
+    
+    def egale(self, autre):
+        
+        """Redéfinition de =="""
+        
+        if (self.leftMode == autre.leftMode) * (self.rightMode == autre.rightMode) * (self.leftSpread == autre.leftSpread) * (self.rightSpread == autre.rightSpread)\
+            * (self.leftType == autre.leftType) * (self.rightType == autre.rightType):
+            return True
+        
+        else:
+            return False        
+        
+    def plusgrand(self,autre) :
+        
+        """Redéfinition de > comme ordre partiel"""
+        
+        maximum = NombreFlou.maxi(self,autre)
+        
+        if(maximum == self):
+            return True
+     
+        elif(maximum == autre):
+            return False
+    
+        else:
+            print("Ces deux arguments ne sont pas comparables pour cette relation d'ordre partiel")
+            
+    def pluspetit(self,autre) :
+        
+        """Redéfinition de < comme ordre partiel"""
+        
+        minimum = NombreFlou.mini(self,autre)
+        
+        if(minimum == self):
+            return True
+     
+        elif(minimum == autre):
+            return False
+    
+        else:
+            print("Ces deux arguments ne sont pas comparables pour cette relation d'ordre partiel")
+
+    def trace(self):
+        
+        """Affichage graphique de la fonction d'appartenance du nombre flou en fonction des types
+        de ses restrictions à gauche et à droite de son noyau"""
+        
+        if self.leftType == "Lin" :
+            
+            G = plot((x -self.leftMode)/self.leftSpread+1,(x,self.leftMode - self.leftSpread,self.leftMode),color='red')
+            
+        elif self.leftType == "Exp" :
+            
+            G = plot(1 - exp((-(x - self.leftMode + self.leftSpread)**2)/self.leftSpread),(x,self.leftMode - self.leftSpread,self.leftMode),color='red')
+            
+        elif self.leftType == "Quad" :
+            
+            G1 = plot(2 * ( (x- self.leftMode + self.leftSpread) / (self.leftSpread))**2,(x,self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2)),color='red')
+            
+            G2 = plot(1 - 2 * ( (x- self.leftMode) / (self.leftSpread))**2,(x,self.leftMode-(self.leftSpread/2), self.leftMode),color='red')
+            
+            G=G1+G2
+            
+        if self.rightType == "Lin" :    
+            
+            D = plot((self.rightMode - x)/self.rightSpread+1,(x,self.rightMode,self.rightMode + self.rightSpread),color='green')
+            
+        elif self.rightType == "Exp" :
+            
+            D = plot( 1 - exp((-( -x + self.rightMode + self.rightSpread)**2)/self.rightSpread),(x,self.rightMode,self.rightMode + self.rightSpread),color='green')
+
+        elif self.rightType == "Quad":
+            
+            D1 = plot( 1 - 2 * ( (x - self.rightMode) / (self.rightSpread))**2,(x,self.rightMode, self.rightMode+(self.rightSpread/2)),color='green')
+            
+            D2 = plot(2 * ( ( x - self.rightMode - self.rightSpread) / (self.rightSpread))**2,(x,self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread),color='green')
+            D=D1+D2
+        
+        if not isinstance(self,NombreFlouRed) and (self.leftMode != self.rightMode) :
+            M = plot(1,(x,self.leftMode,self.rightMode))
+            return (G+M+D)
+        
+        return (G+D)
+   
+    def trace2(self):
+        
+        """Affichage graphique en MathLab de la fonction d'appartenance du nombre flou en fonction des types
+        de ses restrictions à gauche et à droite de son noyau"""
+
+        if self.leftType == "Lin":
+            g = np.arange(self.leftMode-self.leftSpread, self.leftMode,0.001)
+            lg = plt.plot(g, ((g-self.leftMode)/self.leftSpread) +1)
+            
+        elif self.leftType == "Quad" :
+            
+            g1 = np.arange(self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2),0.001)
+            g2 = np.arange(self.leftMode-(self.leftSpread/2), self.leftMode,0.001)
+            
+            lg1 = plt.plot(g1, 2 * ( (g1- self.leftMode + self.leftSpread) / (self.leftSpread))**2)
+            lg2 = plt.plot(g2, 1 - 2 * ( (g2- self.leftMode) / (self.leftSpread))**2)
+            
+            
+        if self.rightType == "Lin" :
+            d = np.arange(self.rightMode, self.rightMode + self.rightSpread,0.001)
+            ld = plt.plot(d, ((-d+self.rightMode)/self.rightSpread) +1)
+            
+        elif self.rightType == "Quad" :
+            
+            d1 = np.arange(self.rightMode, self.rightMode+(self.rightSpread/2),0.001)
+            d2 = np.arange(self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread,0.001)    
+            
+            ld1 = plt.plot(d1, 1 - 2 * ( (d1 - self.rightMode) / (self.rightSpread))**2)
+            ld2 = plt.plot(d2, 2 * ( ( d2 - self.rightMode - self.rightSpread) / (self.rightSpread))**2)
+    
+    def forme_parametrique(self,A=None):
+        
+        """Passage à la forme paramétrique du nombre flou à partir d'un anneau de polynômes univariés,
+        en fonction des types de ses restrictions à gauche et à droite de son noyau"""
+           
+        if A is None :     # si aucun anneau n'est passé en paramètre
+            B = QQ['r']
+            r = B.gen()    # on récupère le générateur de l'anneau par défaut
+
+            C=QQ['u,v']
+            u, v = C.gens()[0], C.gens()[1]
+                                            
+        else:
+            B = A['r']
+            r = B.gen()    # sinon on récupère le générateur de l'anneau
+            
+            C=A['u,v']
+            u, v = C.gens()[0], C.gens()[1]
+            
+        if self.leftType == "Lin" :
+            
+            bas = self.leftMode + self.leftSpread * (r-1)
+            
+        elif self.leftType == "Exp" :
+            
+            bas = self.leftMode - self.leftSpread + sqrt(-self.leftSpread*log(1-r))
+        
+        elif self.leftType == "Quad" :
+            
+            bas1 = self.leftMode + self.leftSpread * (u-1)
+            bas2 = self.leftMode - self.leftSpread * v
+            bas = array( [bas1,bas2] )
+
+        if self.rightType == "Lin" :
+            
+            haut = self.rightMode + self.rightSpread * (1-r)
+            
+        elif self.rightType == "Exp" :
+            
+            haut = self.rightMode + self.rightSpread - sqrt(-self.rightSpread*log(1-r))
+            
+        elif self.rightType == "Quad" :
+        
+            haut1 = -(-self.rightMode - self.rightSpread * v)
+            haut2 = -(-self.rightMode + self.rightSpread * (u-1) )
+            haut = array( [haut1,haut2] )
+            
+        # on construit alors un nombre flou sous forme paramétrique avec les deux fonctions et les types des restrictions
+        
+        if A is None :    
+            
+            return NombreFlouPM(bas, haut, self.leftType + " - " + self.rightType)
+        
+        else :
+            
+            return NombreFlouPM(bas, haut, self.leftType + " - " + self.rightType,A)
+
+class NombreFlouRed(NombreFlou):
+    
+    """Cette classe permet de créer et de manipuler des nombres flous réduit (noyau = mode).
+    
+    Elle hérite de la classe des nombres flous non réduits"""
+
+    
+    def __init__(self, mode, leftSpread, rightSpread, leftType, rightType) :
+              
+        """Constructeur de NombreFlouRed.
+        Mode : le noyau du nombre flou
+        leftSpread : la propagation du nombre flou à gauche du noyau
+        rightSpread : la propagation du nombre flou à droite du noyau
+        leftType : le type de la restriction de la fontion d'appartenance à gauche du noyau
+        rightType : le type de la restriction de la fontion d'appartenance à droite du noyau
+        """
+        
+        self.leftMode = self.rightMode = mode    # le noyau est réduit à un élément
+        
+        self.leftSpread=leftSpread
+        self.rightSpread=rightSpread
+        
+        self.leftType = leftType
+        self.rightType = rightType
+        
+    def get_mode(self):
+        
+        return self.leftMode
+        
+    def get_leftSpread(self):
+        
+        return self.leftSpread
+    
+    def get_rightSpread(self):
+        
+        return self.rightSpread
+        
+    def __str__(self) :
+        
+        """Affiche le nombre flou sous la forme du triplet (tuple)
+        (mode, leftSpread, rightSpread) et précise sa famille"""
+        
+        return "({0},{1},{2}), {3} - {4}".format(self.leftMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
+    
+    def __neg__(self) :
+        
+        """Renvoie l'opposé du nombre flou passé en entrée"""
+        
+        return NombreFlouRed(-self.leftMode,\
+                          self.rightSpread,\
+                          self.leftSpread,\
+                          self.rightType,\
+                          self.leftType)
+        
+    def __add__(self, autre) :
+        
+        """Redéfinition de +"""
+        
+        if isinstance(autre,NombreFlouPM) : # si autre est un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique()
+            
+            return nbPM + autre
+        
+        elif isinstance(autre,np.ndarray) : # si autre est un tableau, on effectue l'opération avec self sous forme paramétrique
+                                                # et on renvoie un tableau des fonctions haut et bas
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab + autre
+        
+        elif isinstance(autre,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense) or isinstance(autre,sage.rings.polynomial.multi_polynomial_element.MPolynomial_polydict):
+            global ajout
+            ajout = (ajout +1)%4
+            
+            nbPM = self.forme_parametrique(A)
+            
+            if self.leftType == 'Lin' :
+                       
+                if(ajout%2==0):
+                    return nbPM.bas + autre
+            
+                elif(ajout%2==1):
+                    return nbPM.haut + autre
+                
+            if self.leftType == 'Quad':
+                
+                if(ajout==0):
+                    return nbPM.bas[0] + autre
+            
+                elif(ajout==1):
+                    return nbPM.bas[1] + autre
+                
+                elif(ajout==2):
+                    return nbPM.haut[0] + autre
+            
+                elif(ajout==3):
+                    return nbPM.haut[1] + autre
+                            
+        else :
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+                
+            else :
+                return NombreFlouRed(self.leftMode + autre.leftMode,\
+                          self.leftSpread + autre.leftSpread,\
+                          self.rightSpread + autre.rightSpread,\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __radd__(self, autre):
+        
+        return self + autre 
+        
+    def __mul__(self, autre) :
+        
+        """Redéfinition de *"""
+        
+        if not isinstance(autre,NombreFlou) : # si autre n'est pas un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab*autre
+        
+        else :
+                
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            
+            else :
+                 
+                return NombreFlouRed(self.leftMode*autre.leftMode,\
+                          (abs(self.leftMode) * autre.leftSpread) + (abs(autre.leftMode) * self.leftSpread),\
+                          (abs(self.rightMode) * autre.rightSpread) + (abs(autre.rightMode) * self.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        
+    def __invert__(self) :
+        
+        """Renvoie l'inverse du nombre flou passé en entrée"""
+        
+        inverse = NombreFlouRed(1/self.leftMode, self.rightSpread / (self.rightMode**2),\
+                                    self.leftSpread / (self.leftMode**2),\
+                                    self.rightType,\
+                                    self.leftType)
+            
+        return inverse
+
+class NombreFlouPM :
+    """Cette classe permet de créer et de manipuler des nombres flous sous la forme paramétrique"""
+    
+    def __init__(self, bas, haut, famille, A=None) :
+        
+        """Constructeur de NombreFlou.
+        bas : le polynôme qui donne pour chaque r dans [0,1] la borne gauche de la coupe-r correspondante
+        haut : le polynôme qui donne pour chaque r dans [0,1] la borne droite de la coupe-r correspondante
+        famille : la famille du nombre flou
+        para : le générateur de l'anneau donné en paramètre (ou par défaut le générateur de l'anneau de polynômes à une variable sur le corps de rationnels)
+        """
+        if A is None:
+            self.bas=bas
+            self.haut=haut
+            self.famille = famille
+            A = QQ[r]
+            self.para = A.gen()
+            
+        else :
+            
+            self.bas = bas
+            self.haut = haut
+            self.famille = famille
+            self.para = A.gen()
+        
+    def __str__(self) :
+        
+        """Affiche le nombre flou sous la forme d'une liste
+        [bas, haut], famille"""
+        
+        if isinstance(self.bas, np.ndarray):
+            
+            bas = list(self.bas)
+            
+        else :
+            
+            bas = self.bas
+            
+        if isinstance(self.haut, np.ndarray):
+            
+            haut = list(self.haut)  
+            
+        else :
+            
+            haut = self.haut
+        
+        return "[{0},{1}] , {2}".format(bas, haut, self.famille)
+    
+    def get_types(self):
+        
+        """À partir de la famille du nombre flou paramétrique, renvoie les types des restrictions"""
+        
+        tiret = False
+        leftType = ''
+        rightType = ''
+        
+        for lettre in self.famille :
+            if lettre == '-':
+                
+                tiret = True
+                
+            elif tiret == False:
+                
+                leftType += lettre
+                
+            else :
+                
+                rightType += lettre
+        
+        leftType = leftType.strip()      
+        leftType = leftType.capitalize()
+        rightType = rightType.strip()
+        rightType = rightType.capitalize()
+    
+        return leftType, rightType
+    
+    def famillesEgales(self, autre):
+        
+        """Vérifie si les familles de self et autre sont les mêmes"""
+        
+        if(self.get_types()[0] == autre.get_types()[0]) and (self.get_types()[1] == autre.get_types()[1]):
+            
+            return True
+        
+        else:
+            
+            return False
+        
+    def famillesSymetriques(self, autre):
+        
+        """Vérifie si les familles de self et autre sont symétriques"""
+        
+        if(self.get_types()[0] == autre.get_types()[1]) and (self.get_types()[1] == autre.get_types()[0]):
+            
+            return True
+        
+        else:
+            
+            return False
+    
+    def __neg__(self):
+        
+        """Renvoie l'opposé du nombre flou paramétrique"""
+        
+        if self.get_types()[0] == 'Quad' :
+            
+            bas = array( [self.bas[1],self.bas[0]] )
+            
+        else :
+            
+            bas = self.bas
+            
+        if self.get_types()[1] == 'Quad' :
+            
+            haut = array( [self.haut[1],self.haut[0]] )
+            
+        else :
+            
+            haut = self.haut
+        
+        return NombreFlouPM( - haut, - bas, self.get_types()[1] + " - " + self.get_types()[0], self.para.parent())
+    
+    def __add__(self, autre):
+        
+        """Redéfinition de +"""
+        
+        if isinstance(autre,NombreFlou) or isinstance(autre,NombreFlouRed) : # si autre est un Nombre flou sous forme de tuple, l'opération s'effectue après avoir passé autre sous forme paramétrique
+            
+            copy_autre = autre.forme_parametrique()
+                      
+        else :
+            
+            copy_autre = autre
+        
+        if not self.famillesEgales(copy_autre):
+            print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            
+        else :
+            return NombreFlouPM(self.bas + copy_autre.bas, self.haut + copy_autre.haut, self.famille, self.para.parent())
+    
+    def __sub__(self, autre):
+        
+        """Redéfinition de -"""
+            
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+            
+            return self + -autre
+
+    
+    def __mul__(self, autre):
+       
+        """Redéfinition de *"""
+
+         # Premier cas : cas d'un produit par un scalaire ou un polynômeif isinstance(autre,float) :
+        
+        if not isinstance(autre, NombreFlouPM):
+            
+            if(autre < 0):
+                return NombreFlouPM(autre * self.haut, autre * self.bas, self.famille, self.para.parent())
+        
+            else :
+                return NombreFlouPM(autre * self.bas, autre * self.haut, self.famille, self.para.parent())
+
+            # Second cas : cas d'un produit par un autre nombre flou
+        
+        else:
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            else:    
+                return NombreFlouPM( min(self.bas * autre.bas,self.bas * autre.haut,self.haut * autre.bas,self.haut * autre.haut) ,\
+                                max(self.bas * autre.bas,self.bas * autre.haut,self.haut * autre.bas,self.haut * autre.haut),\
+                                self.famille, self.para.parent())
+            
+            
+    def __div__(self, autre):
+        
+        """Redéfinition de /"""
+        
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+        
+            if  autre.bas(0) < 0 < autre.haut(0):
+                return NombreFlouPM( min(self.bas / autre.bas,self.bas / autre.haut,self.haut / autre.bas,self.haut / autre.haut) ,\
+                                max(self.bas / autre.bas,self.bas / autre.haut,self.haut / autre.bas,self.haut / autre.haut),\
+                                self.famille, self.para.parent())
+            
+    def forme_tuple(cls,nombreFlouPM):
+        
+        
+        leftMode = nombreFlouPM.bas(1)
+        
+        rightMode = nombreFlouPM.haut(1) 
+        
+        leftSpread = (-1) * (nombreFlouPM.bas(0) - leftMode)
+        
+        rightSpread = (nombreFlouPM.haut(0) - rightMode)
+        
+        if(nombreFlouPM.famille == 'NombreFlouTrap') :
+            return NombreFlouTrap(leftMode, rightMode, leftSpread, rightSpread)
+
+        if(nombreFlouPM.famille == 'NombreFlouTri') :
+            return NombreFlouTri(leftMode, leftSpread, rightSpread)
+    
+
+    forme_tuple = classmethod(forme_tuple)
+    
+    def ff(self): 
+        r=self.para
+        Bas=self.bas
+        Haut=self.haut
+        return (Bas(r) + Haut(r) + Bas(1) + Haut(1))*r
+        #return (self.bas(r) + self.haut(r) + self.bas(1) + self.haut(1))*r
+    
+    def mag2(self):
+        return integral(self.ff(),r)
+    
+    def mag(self):
+        
+        r=self.para
+        
+        """Calcule la magnitude du nombre flou"""
+        
+        f=(self.bas(r) + self.haut(r) + self.bas(1) + self.haut(1))*r
+        
+        integrale = integral(f(r),r)
+        
+        res = truediv(integrale(1) - integrale(0),2)
+        
+        return res
+    
+    def momag(self):
+        
+        """Calcule la momagnitude du nombre flou"""
+        
+        f=(self.bas(r) - self.haut(r) + self.bas(1) - self.haut(1))
+        
+        integrale = integral(f(r),r)
+        
+        res = truediv(integrale(1) - integrale(0),2)
+        
+        return res
+    
+    def R(self, autre):
+        
+        """À partir de 2 nombres flous sous forme paramétrique A et B, calcule les quantités 
+        
+        R(A,lambda) = Mag(A) + lambda * Momag(A) et R(B,lambda) = Mag(B) + lambda * Momag(B),
+        
+        où lambda = 0 si Mag(A) != Mag(B)
+                    1 si Mag(A) == Mag(B) et z >= 0
+                    -1 si Mag(A) == Mag(B) et z < 0
+                    
+        avec z = (A.bas(1) + A.haut(1))/2
+        
+        et renvoie ces deux valeurs dans un tuple"""
+        
+        if (self.mag()!= autre.mag()) :
+            
+            return (self.mag(),autre.mag())
+        
+        else:
+            
+            z = truediv(self.bas(1) + self.haut(1),2)
+                  
+            if(z >=0):
+                
+                return (self.mag() + self.momag(), autre.mag() + autre.momag())
+            
+            else :
+                
+                 return (self.mag() - self.momag(), autre.mag() - autre.momag())
+        
+    
+    def __eq__(self, autre):
+        
+        """Redéfinition de =="""
+        
+        if(self.R(autre)[0] == self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __ne__(self, autre):
+        
+        """Redéfinition de !="""
+        
+        if(self.R(autre)[0] != self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __lt__(self, autre):
+        
+        """Redéfinition de <"""
+        
+        if(self.R(autre)[0] < self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __le__(self, autre):
+        
+        """Redéfinition de <="""
+        
+        if(self.R(autre)[0] <= self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __gt__(self, autre):
+        
+        """Redéfinition de >"""
+        
+        if(self.R(autre)[0] > self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __ge__(self, autre):
+        
+        """Redéfinition de >="""
+        
+        if(self.R(autre)[0] >= self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def maximum(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le max de deux nombres flous pour l'ordre total"""
+        
+        if nombreFlou1 == nombreFlou2 :
+            
+            print("Les deux nombres flous sont équivalents, renvoi du premier passé en paramètre")
+            
+            return nombreFlou1
+        
+        elif nombreFlou1 > nombreFlou2 :
+            
+            return nombreFlou1
+        
+        else :
+            
+            return nombreFlou2
+            
+    maximum = classmethod(maximum)
+    
+    def minimum(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le min de deux nombres flous pour l'ordre total"""
+        
+        if nombreFlou1 == nombreFlou2 :
+            
+            print("Les deux nombres flous sont équivalents, renvoi du premier passé en paramètre")
+            
+            return nombreFlou1
+        
+        elif nombreFlou1 < nombreFlou2 :
+            
+            return nombreFlou1
+        
+        else :
+            
+            return nombreFlou2
+            
+    minimum = classmethod(minimum)
+    
+    def maxi(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le max de deux nombres flous pour l'ordre partiel"""
+        
+        if truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) == truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            
+            if nombreFlou1.bas(0) >= nombreFlou2.bas(0):
+                bas = nombreFlou1.bas
+                
+            else :
+                bas = nombreFlou2.bas
+                
+            if nombreFlou1.haut(0) >= nombreFlou2.haut(0):
+                haut = nombreFlou1.haut
+                
+            else :
+                haut = nombreFlou2.haut
+            
+            return NombreFlouPM(bas,haut)
+
+        elif truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) > truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            return nombreFlou1
+        
+        else :
+            return nombreFlou2
+        
+    maxi = classmethod(maxi)
+ 
+    def mini(csl,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le min de deux nombres flous pour l'ordre partiel"""
+        
+        if truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) == truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            
+            if nombreFlou1.bas(0) < nombreFlou2.bas(0):
+                bas = nombreFlou1.bas
+                
+            else :
+                bas = nombreFlou2.bas
+                
+            if nombreFlou1.haut(0) < nombreFlou2.haut(0):
+                haut = nombreFlou1.haut
+                
+            else :
+                haut = nombreFlou2.haut
+            
+            return NombreFlouPM(bas,haut)
+
+        elif truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) < truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            return nombreFlou1
+        
+        else :
+            return nombreFlou2
+        
+    mini = classmethod(mini)
+    
+    def egale(self, autre):
+        
+        """Redéfinition de == comme ordre partiel"""
+        
+        if (self.bas == autre.bas) * (self.haut == autre.haut) :
+            return True
+        
+        else:
+            return False        
+        
+    def plusgrand(self,autre) :
+        
+        """Redéfinition de > comme ordre partiel"""
+        
+        maximum = NombreFlouPM.maxi(self,autre)
+        
+        if(maximum == self):
+            return True
+     
+        elif(maximum == autre):
+            return False
+    
+        else:
+            print("Ces deux arguments ne sont pas comparables pour cette relation d'ordre partiel")
+            
+    def pluspetit(self,autre) :
+        
+        """Redéfinition de > comme ordre partiel"""
+        
+        minimum = NombreFlouPM.mini(self,autre)
+        
+        if(minimum == self):
+            return True
+     
+        elif(minimum == autre):
+            return False
+    
+        else:
+            print("Ces deux arguments ne sont pas comparables pour cette relation d'ordre partiel")
+                       
+    def trace(self):
+        
+        """Affichage graphique de la fonction d'appartenance du nombre flou en fonction des fonctions bas et haut"""
+        
+        if self.get_types()[0] == "Quad":
+            
+            G1 = plot(self.bas[0](x),(x,0,0.5),color='red')
+            
+            G2 = plot(self.bas[1](x),(x,0.5,1),color='red')
+            
+            G=G1+G2
+            
+            leftLim = self.bas[1](1)
+            
+        else:
+            
+            G = plot(self.bas(x),(x,0,1),color='red')
+            
+            leftLim = self.bas(1)
+            
+        if self.get_types()[1] == "Quad":
+            
+            D1 = plot(self.haut[0](x),(x,0.5,1),color='green')
+            
+            D2 = plot(self.haut[1](x),(x,0,0.5),color='green')
+            D=D1+D2
+            
+            rightLim = self.haut[0](1)
+            
+        else:
+            
+            D = plot(self.haut(x),(x,0,1),color='green')
+            
+            rightLim = self.haut(1)
+            
+        M = line([(1,rightLim), (1,leftLim)])
+        
+        return (G+M+D)
+    
+    def trace2(self):
+        
+        """Affichage graphique en MathLab de la fonction d'appartenance du nombre flou en fonction des fonctions bas et haut"""
+
+        t = np.arange(0.0, 1.0,0.001)
+        
+        if self.get_types()[0] == "Quad":
+            
+            bas1=self.bas[0]
+            bas2=self.bas[1]
+            print(bas2)
+            lg1 = plt.plot(t, bas1(t))
+            lg2 = plt.plot(t, bas2(t))
+        
+        else:
+            
+            lg = plt.plot(t, self.bas(t))
+        
+        if self.get_types()[1] == "Quad":
+ 
+            ld1 = plt.plot(t, self.haut[0](t))
+            ld2 = plt.plot(t, self.haut[1](t))
+        
+        else:
+            
+            ld = plt.plot(t, self.haut(t))                   
