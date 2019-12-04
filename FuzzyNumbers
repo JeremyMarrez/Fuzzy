@@ -389,7 +389,7 @@ class FuzzyNumber :
                                             
         else:
             B = A['r']
-            r = B.gen()    otherwise we recover the generator of the ring            
+            r = B.gen()    # otherwise we recover the generator of the ring            
             C=A['u,v']
             u, v = C.gens()[0], C.gens()[1]
             
@@ -1145,11 +1145,12 @@ class FuzzyNumberPM :
             
             ld = plt.plot(t, self.top(t))    
     
+   
 #RESOLUTION WITH ALGEBRAIC METHODS
     
-    def class(p):
+    def classe(p):
     
-    """ Returns the class of a polynomial (the maximum among the indices of the variables appearing in p)"""
+    """ Returns the classe of a polynomial (the maximum among the indices of the variables appearing in p)"""
     
     if p.is_constant() :
         v = n
@@ -1174,7 +1175,7 @@ class FuzzyNumberPM :
 
 def degree(p):
     
-    """ Returns the degree of a polynomial (the maximum degree in the variable whose index is the class of p, i.e. the main variable of p)"""
+    """ Returns the degree of a polynomial (the maximum degree in the variable whose index is the classe of p, i.e. the main variable of p)"""
     
     if p.is_zero():
         
@@ -1182,13 +1183,13 @@ def degree(p):
 
     else :
     
-        return (p.lm()).degrees()[class(p)]
+        return (p.lm()).degrees()[classe(p)]
 
 def init(p):
     
     """ Returns the leading coefficient in the main variable of p """
     
-    return p.coefficient(var[class(p)]**degree(p))
+    return p.coefficient(var[classe(p)]**degree(p))
 
 def orderRitt(a,b):
     
@@ -1219,13 +1220,13 @@ def orderRitt(a,b):
     if b.is_constant() :
         return int(1)
     
-    class_a = class(a)
-    class_b = class(b)
+    classe_a = classe(a)
+    classe_b = classe(b)
     
-    diff_classes = class_a - class_b
+    diff_classees = classe_a - classe_b
     
-    if not(diff_classes == 0):
-        return int(diff_classes / abs(diff_classes))
+    if not(diff_classees == 0):
+        return int(diff_classees / abs(diff_classees))
                 
     else :
         diff_degres = degree(a) - degree(b)
@@ -1234,7 +1235,7 @@ def orderRitt(a,b):
             return int(diff_degres / abs(diff_degres))
     
         else:
-            return orderRitt(a.coefficient(var[class(a)]),b.coefficient(var[class(b)]))
+            return orderRitt(a.coefficient(var[classe(a)]),b.coefficient(var[classe(b)]))
 
 def isReduced(a,b):
     
@@ -1243,7 +1244,7 @@ def isReduced(a,b):
     if b.is_constant():
         return False
     
-    return a.degree(var[class(b)]) < degree(b)
+    return a.degree(var[classe(b)]) < degree(b)
 
 def bottomicSet(F):
     
@@ -1274,7 +1275,7 @@ def tail(p):
     
     """ Returns the tail of a polynomial p, i.e. p - its dominant term """
     
-    tail = p - init(p)*var[class(p)]**degree(p)
+    tail = p - init(p)*var[classe(p)]**degree(p)
     
     return tail
 
@@ -1282,11 +1283,11 @@ def isConstant(p,i):
     
     """ Returns True if p is constant in the index variable i, and False otherwise """
     
-    if class(p) == i :
+    if classe(p) == i :
         
         return False
     
-    if class(p) == n or class(p) < i :
+    if classe(p) == n or classe(p) < i :
         
         return True
     
@@ -1297,13 +1298,13 @@ def pseudoDiv(p,f):
     """ Performs the pseudo-division of p by f
     and returns the list [quotient, remainder, init(f), init(f)^j]"""
     
-    v = var[class(f)]
+    v = var[classe(f)]
         
     q = 0
         
     deg_f = degree(f)
         
-    deg_p = p.degree(var[class(f)])
+    deg_p = p.degree(var[classe(f)])
         
     h = init(f)
         
@@ -1316,11 +1317,11 @@ def pseudoDiv(p,f):
     while delta >= 0 :        
         j +=1
 
-        aux = p.coefficient(var[class(f)]**(p.degree(var[class(f)])))
+        aux = p.coefficient(var[classe(f)]**(p.degree(var[classe(f)])))
         
         q = h*q + aux *v**delta
         p = h*p - aux*f*v**delta
-        deg_p = p.degree(var[class(f)])
+        deg_p = p.degree(var[classe(f)])
         delta = deg_p - deg_f
    
     return [q,p,h**j,j]
