@@ -1536,9 +1536,9 @@ def solveFuzzyPolynomialSystem(syst_depart,family):
     result = Wu(collect)
     return (result,ensInit(result))  
     
-    #COMPUTE REAL SOLUTIONS OF FUZZY SYSTEMS
+#COMPUTE REAL SOLUTIONS OF FUZZY SYSTEMS
     
-    def binary_base(number):
+def binary_base(number):
     
     L = list()
     if number == 0 :
@@ -1802,7 +1802,7 @@ def normalize_system(System):
 
     return system_normalize
     
-def resolution_reelle_systems_flous(System, n):
+def resolution_real_systems_fuzzy(System, n):
     
     continue_main_loop = 0
     
