@@ -1144,3 +1144,392 @@
 	        else:
 	            
 	            ld = plt.plot(t, self.top(t))    
+		    
+#RESOLUTION WITH ALGEBRAIC METHODS
+	    
+	    def class(p):
+    
+    """ Returns the class of a polynomial (the maximum among the indices of the variables appearing in p)"""
+    
+    if p.is_constant() :
+        v = n
+        
+    elif p.is_zero() :
+        v = n
+             
+    else :
+        
+        mon = p.lm()
+        
+        lv = [i for i in range(0, n) if mon.degrees()[i] > 0]
+        
+        if lv == [] :
+            v= n
+            
+        else :
+            
+            v = max(lv)
+            
+    return v
+
+def degree(p):
+    
+    """ Returns the degree of a polynomial (the maximum degree in the variable whose index is the class of p, i.e. the main variable of p)"""
+    
+    if p.is_zero():
+        
+        return -1
+
+    else :
+    
+        return (p.lm()).degrees()[class(p)]
+
+def init(p):
+    
+    """ Returns the leading coefficient in the main variable of p """
+    
+    return p.coefficient(var[class(p)]**degree(p))
+
+def orderRitt(a,b):
+    
+    """Returns 1 if a > b
+               0 if a = b
+               -1 if a < b
+       for Ritt's order."""
+    
+    if a.is_zero() :
+        
+        if b.is_zero():      
+            return int(0)
+        
+        else :
+            return int(-1)
+    
+    if b.is_zero() :
+        return int(1)
+    
+    if a.is_constant() :
+        
+        if b.is_constant():      
+            return int(0)
+        
+        else :
+            return int(-1)
+    
+    if b.is_constant() :
+        return int(1)
+    
+    class_a = class(a)
+    class_b = class(b)
+    
+    diff_classes = class_a - class_b
+    
+    if not(diff_classes == 0):
+        return int(diff_classes / abs(diff_classes))
+                
+    else :
+        diff_degres = degree(a) - degree(b)
+        
+        if not(diff_degres == 0):
+            return int(diff_degres / abs(diff_degres))
+    
+        else:
+            return orderRitt(a.coefficient(var[class(a)]),b.coefficient(var[class(b)]))
+
+def isReduced(a,b):
+    
+    """ Returns True if a is reduced with respect to b, and False otherwise """
+        
+    if b.is_constant():
+        return False
+    
+    return a.degree(var[class(b)]) < degree(b)
+
+def bottomicSet(F):
+    
+    """ Computes a bottomic set of a set of polynomials F """
+    
+    B = []
+    
+    while F != []:
+              
+        b = F[0]
+        
+        print("The element of minimum rank is {0}".format(b))
+        
+        if b.lc() != 1 and b.lc() !=0:
+            b = b/b.lc()
+
+        B.append(b)
+        
+        F = [f for f in F if isReduced(f,b)]
+            
+        print("Only the elements that are reduced compared to {0} are kept in the set, we obtain the set {1}".format(b,F))
+        
+    print("Bottomic Set B =")
+    print(B)        
+    return B
+
+def tail(p):
+    
+    """ Returns the tail of a polynomial p, i.e. p - its dominant term """
+    
+    tail = p - init(p)*var[class(p)]**degree(p)
+    
+    return tail
+
+def isConstant(p,i):
+    
+    """ Returns True if p is constant in the index variable i, and False otherwise """
+    
+    if class(p) == i :
+        
+        return False
+    
+    if class(p) == n or class(p) < i :
+        
+        return True
+    
+    return isConstant(tail(p),i)    
+
+def pseudoDiv(p,f):
+    
+    """ Performs the pseudo-division of p by f
+    and returns the list [quotient, remainder, init(f), init(f)^j]"""
+    
+    v = var[class(f)]
+        
+    q = 0
+        
+    deg_f = degree(f)
+        
+    deg_p = p.degree(var[class(f)])
+        
+    h = init(f)
+        
+    g = tail(f)
+     
+    delta = deg_p - deg_f
+        
+    j = 0
+
+    while delta >= 0 :        
+        j +=1
+
+        aux = p.coefficient(var[class(f)]**(p.degree(var[class(f)])))
+        
+        q = h*q + aux *v**delta
+        p = h*p - aux*f*v**delta
+        deg_p = p.degree(var[class(f)])
+        delta = deg_p - deg_f
+   
+    return [q,p,h**j,j]
+
+def premTriSet(p,T):
+    
+    """ Performs the pseudo-division of p by all polynomials of the set T and returns the remainder """
+    
+    for i in range(len(T),0,-1):
+
+        p = pseudoDiv(p,T[i-1])[1]
+    
+    if p.lc() != 1 and p.lc() !=0:
+            p = p/p.lc()
+            
+    return p
+
+def PREM(F,B):
+    
+    """ Performs the pseudo-division of each polynomial of F by all polynomials of the set T and returns the list of remainders """
+    
+    PREM = []
+    
+    for i in range(len(F)):
+        
+        PREM.append(premTriSet(F[i],B))
+    
+    PREM.sort()    
+        
+    PREM.sort(orderRitt)    
+        
+    return PREM
+
+def listContainsAConstant(L):
+    
+    """ Returns True if the list contains a constant, and False otherwise """
+    
+    for i in range(0,len(L)):
+        
+        if L[i].is_constant():
+            
+            return True
+        
+        
+    return False
+
+def CharacSet(F) :
+    
+    """ Calculates the characteristic set of the set of polynomials F """
+    
+    S = list(copy(F))
+    print("S =")
+    print(S)
+    print("Computation of a bottomic set:")
+    B = bottomicSet(S)
+    
+    while PREM(F,B).count(0) != len(PREM(F,B)):
+        
+        print("PREM(F,B) =")
+        print(PREM(F,B))
+        S = set(S)
+        S = S.union(PREM(F,B))
+        if 0 in S:
+            S.remove(0)
+        S = list(S)
+        S.sort(orderRitt)  
+                
+        if listContainsAConstant(S):
+            
+            return [1]
+        
+        else:
+        
+            print("S ∪ PREM (F,B)\{0} =")
+            print(S)
+            print("Computation of a bottomic set:")
+            B = bottomicSet(S)
+        
+        print('back in the function CharacSet')
+    
+    print("Charac Set =")
+    print(B)
+    
+    return B           
+
+def Wu(F):
+    
+    """ Wu’s algorithm: computing the set of characteristic sets from the system F """
+    
+    Z = []
+    D = [F]
+    
+    while D != []:
+        
+        print("D =")
+        print(D)
+        
+        Ft = D[0]
+        D.remove(Ft)
+        
+        print("Computation of the characteristic set:")
+        
+        B = CharacSet(Ft)
+        print('back in the function Wu')
+        if B != [1] and B !=[-1]:
+            
+            Z.append(B)
+            
+            for b in B :
+                
+                list = []
+                
+                if not init(b).is_constant():
+                
+                    ens_Ft = set(Ft)
+                
+                    ens_B = set(B)
+                    
+                    ensemble = ens_Ft | ens_B
+                    
+                    ensemble.add(init(b))
+                    
+                    list=list(ensemble)
+                    list.sort(orderRitt)
+                                        
+                    D.append(list)
+
+    return Z
+    
+    def syst_collect(syst_dep,family):
+    
+    """ Calculation from a starting system, the collectd crisp form system"""
+    
+    syst_collect = set()
+    
+    for equation in syst_dep:
+        
+        if not isinstance(equation[0],np.ndarray):
+            
+            left_member  = equation[0].parametric_form(A)
+            
+            left_member  = array([left_member.bottom,left_member.top])
+        
+        else :
+            left_member  = equation[0]
+        
+        if not isinstance(equation[1],np.ndarray):
+            
+            right_member = equation[1].parametric_form(A)
+            
+            right_member = array([right_member.bottom,right_member.top])
+        
+        else :
+            right_member = equation[1]
+            
+        homogeneous_equation = left_member  - right_member
+        print("HOMOGENEOUS EQUATION:")
+        print(homogeneous_equation)
+         
+        if family == 'Lin':
+
+            syst_collect = syst_collect.union((homogeneous_equation)[0].coefficients())
+            syst_collect = syst_collect.union((homogeneous_equation)[1].coefficients())
+        
+        if family == 'Quad':
+            
+            syst_collect = syst_collect.union((homogeneous_equation)[0][0].coefficients())
+            syst_collect = syst_collect.union((homogeneous_equation)[0][1].coefficients())
+            syst_collect = syst_collect.union((homogeneous_equation)[1][0].coefficients())
+            syst_collect = syst_collect.union((homogeneous_equation)[1][1].coefficients())
+        
+        list=list(syst_collect)
+        list.sort()
+  
+        
+    return list
+    
+    def prodInit(B):
+    
+    " Returns the product of the initials of the polynomials of set B "
+    
+    prod = 1
+    
+    for b in B:
+        
+        prod*=init(b)
+        
+    return prod
+
+def ensInit(Z):
+    
+    " Returns the list of initial products for each set of Z "
+    
+    list = []
+    
+    for ensemble in Z:
+        
+        list.append(prodInit(ensemble))
+        
+    return list
+    
+    def solveFuzzyPolynomialSystem(syst_depart,family):
+    
+    """ Main algorithm for solving polynomial systems with triangular fuzzy coefficients """
+    
+    collect=syst_collect(syst_depart,family)
+    
+    print("The collected crisp system is composed of the following polynomials:")
+    print(collect)
+    print("Computation of the set of characteristic sets of the collected crisp system:")
+    result = Wu(collect)
+    return (result,ensInit(result)) 
