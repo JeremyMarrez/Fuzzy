@@ -1452,9 +1452,9 @@ def Wu(F):
 
     return Z
     
-    def syst_collect(syst_dep,family):
+def syst_collect(syst_dep,family):
     
-    """ Calculation from a starting system, the collectd crisp form system"""
+    """ Calculation from a starting system of the collected crisp system"""
     
     syst_collect = set()
     
@@ -1500,7 +1500,7 @@ def Wu(F):
         
     return list
     
-    def prodInit(B):
+def prodInit(B):
     
     " Returns the product of the initials of the polynomials of set B "
     
