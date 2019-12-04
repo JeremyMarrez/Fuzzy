@@ -1535,4 +1535,324 @@ def solveFuzzyPolynomialSystem(syst_depart,family):
     print("Computation of the set of characteristic sets of the collected crisp system:")
     result = Wu(collect)
     return (result,ensInit(result))  
+    
+    #COMPUTE REAL SOLUTIONS OF FUZZY SYSTEMS
+    
+    def binary_base(number):
+    
+    L = list()
+    if number == 0 :
+        return [0]
+
+    while number != 0:
+        if number %2 == 0:
+            number /=2
+            L.append(0)
+        else :
+            number -=1
+            number /=2
+            L.append(1)
+    L.reverse()
+    return L
+    
+def possible_signs(n):
+    L=list()
+    LL=list()
+    for i in range(2**n):
+        L=binary_base(i)
+        
+        if(size(L)!=n):
+            L.reverse()
+            L.extend([0 for i in range(n-size(L))])
+            L.reverse()
+            
+        
+        for j in range (size(L)):
+            if L[j]==0:
+                L[j]=-1
+        
+        LL.append(L)
+        
+        
+    return LL
+    
+def system_signs(M,S):
+    
+    Systems_signs = list()
+    
+    for possible_signe in S :
+        
+        System = list()
+        
+        for couple in M :
+            for liste in couple:
+                for element in liste :
+                    print(element)
+                    f = symbolic_expression(element[1])
+            
+                    variable = -1
+        
+                    while(f != 1 and f != -1):
+                        
+                        variable +=1
+                
+                        print(possible_signe[variable])
+                        f = f(possible_signe[variable])
+        
+                    if f == 1 :
+            
+                        Monome_sign = element[0]
+            
+                    else :
+                
+                        Monome_sign = element[0]*(-1)
+            
+                    System.append(Monome_sign)
+        
+        Systems_signs.append(System)
+        
+    return Systems_signs          
+
+def reconstruction_systems(M,r):
+    
+    Systems = list()
+    
+    for liste_coeff in r :
+        coeff = -1
+        System = list()
+        for couple in M :
+            Tuple = list()
+                   
+            for liste in couple:
+                eq = 0
+                for element in liste :
+                    print(element[1])
+                    coeff +=1
+                    print(liste_coeff[coeff])
+                    
+                            
+                    eq += liste_coeff[coeff] * element[1]
+                            
+                
+            
+                Tuple.append(eq)
+        
+            Tuple_final = tuple(Tuple)
+            System.append(Tuple_final)
+    
+        Systems.append(System)
+    return Systems   
+    
+def solutions_signees(nb_variables,system_start):
+    
+    
+    S=possible_signs(nb_variables)
+    
+    r=system_signs(system_start,S)
+    
+    Systems_signs = reconstruction_systems(system_start,r)
+    
+    RES = list()
+
+    for system in Systems_signs:
+    
+        RES.append(solveFuzzyPolynomialSystem(system,"Quad"))
+    
+    return RES
+    
+def MultiSign(j,n):
+    
+    if(j < 2**n):
+    
+        I=binary_base(j)
+        
+        if(len(I)!=n):
+            I.reverse()
+            I.extend([0 for i in range(n-size(I))])
+            I.reverse()
+              
+        for i in range (len(I)):
+            if I[i]==0:
+                I[i]=-1
+        
+        return I
+        
+def get_terms(System):
+
+    Terms = list()
+
+    for couple in System :
+            for liste in couple:
+                for element in liste :
+                    term = symbolic_expression(element[1])
+                    #print(element[1].parent())
+                    Terms.append(term)
+
+    return Terms
+    
+def signed_column(Terms, I):
+
+    C = list()
+    for term in Terms:
+        variable_in_evaluation_process = -1
+
+        while(term != 1 and term != -1):
+
+            variable_in_evaluation_process +=1
+
+            term = term(I[variable_in_evaluation_process])
+
+        #term = Integer(term)
+        C.append(term)
+    return C
+    
+def reconstruction_systems(System,I):
+    
+    Terms = get_terms(System)
+    #print(Terms)
+    liste_signes = signed_column(Terms, I)
+    #print(liste_signes)
+    signe = -1
+    System_signe = list()
+    for couple in System :
+        Tuple = list()
+        eq1 = eq2 = eq3 = 0
+        numero_liste = 0 # it is the first list of the couple OR the second list                   
+        for liste in couple:
+            
+            numero_liste += 1
+            
+            for element in liste :
+                #print(element[1].parent())
+                signe +=1
+                #print(liste_signes[signe])
+                    
+                #(numero_liste * (-2) + 3) : si numero_liste = 1 -> 1 et si = 2 -> -1, i.e. we move the right-hand term to the other side of the equation
+                eq1 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_mode() * element[1]
+                #print(eq1.parent())
+                eq2 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_leftSpread() * element[1]
+                
+                eq3 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_rightSpread() * element[1]
+         
+        #p1 = eq1.polynomial(QQ,order ='invlex')
+        #p2 = eq2.polynomial(QQ,order ='invlex')
+        #p3 = eq3.polynomial(QQ,order ='invlex')
+
+        System_signe.append(eq1)
+        System_signe.append(eq2)
+        System_signe.append(eq3)
+
+    return System_signe
+    
+def listes_comparison(c1, c2):
+    """
+    Function comparing the values contained in two tables two by two. The first value of c1 with
+    the one of c2, then the 2nd of c1 with the 2nd of c2 etc...
+    """
+
+    if len(c1) != len(c2):
+        return False
+    
+    else:
+    
+        for value_c1, value_c2 in zip(c1, c2):
+            # si la value de c1 est différente de c2
+            if value_c1 != value_c2:
+                return False  # The tables are not identical
+        # If there was no mismatch between the two lists, we get here and we return True
+        return True
+        
+def already_known_list(L, ens_listes):
+    
+    for liste in ens_listes:
+        if listes_comparison(L,liste) == True:
+            return True
+        
+    return False
+    
+def NewSystem(system_SI, liste_systems):
+    """Indicates whether the system system_SI is already present in the list  of systems liste_systems"""
+    
+    system_SI = normalize_system(system_SI)
+    
+    cpt = -1
+    
+    ens_system_SI = set(system_SI)
+    
+    for system in liste_systems:
+        cpt += 1
+        ens_systems = set(system)
+        
+        if (ens_system_SI & ens_systems) == (ens_system_SI | ens_systems):
+            
+            return cpt
+    
+    
+    return -1        
+ 
+def normalize_system(System):
+    
+    system_normalize = list()
+    
+    for equation in System:
+        if equation.lc()/abs(equation.lc())==1:
+            system_normalize.append(equation)
+        else:
+            system_normalize.append(-1*equation)
+
+    return system_normalize
+    
+def resolution_reelle_systems_flous(System, n):
+    
+    continue_main_loop = 0
+    
+    cpt = -1
+    
+    b = list()
+    
+    sol = list()
+    
+    DistinctColumns = list()
+    
+    ListeSystems = list()
+    
+    for j in range (2**n):
+        
+        continue_main_loop = 0
+        
+        print(DistinctColumns)
+        print(ListeSystems)
+        
+        I = MultiSign(j,n)
+        
+        Terms = get_terms(System)
+        C = signed_column(Terms, I)
+        
+        for i in range(cpt):
+            if listes_comparison(C,DistinctColumns[i]):
+                sol.insert(j,0)
+                continue_main_loop = 1
+                break
+                
+        if continue_main_loop == 1 : continue                
+        
+        cpt += 1
+        #print(cpt)
+        DistinctColumns.insert(cpt, C)
+        SI = reconstruction_systems(System,I)
+        
+        i = NewSystem(SI,ListeSystems)
+        
+        if i== -1:
+            SI = normalize_system(SI)
+            ListeSystems.append(SI)   
+            b.insert(cpt, 0)
+            sol.insert(j, 0)
+            
+        else:
+            b.insert(cpt,sol[i])
+            sol.insert(j,sol[i])
+            
+    return sol 
+
 
