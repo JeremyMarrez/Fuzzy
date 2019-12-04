@@ -1146,6 +1146,7 @@ class FuzzyNumberPM :
             ld = plt.plot(t, self.top(t))    
     
    
+   
 #RESOLUTION WITH ALGEBRAIC METHODS
     
 def classe(p):
@@ -1246,9 +1247,9 @@ def isReduced(a,b):
     
     return a.degree(var[classe(b)]) < degree(b)
 
-def bottomicSet(F):
+def basicSet(F):
     
-    """ Computes a bottomic set of a set of polynomials F """
+    """ Computes a basic set of a set of polynomials F """
     
     B = []
     
@@ -1267,7 +1268,7 @@ def bottomicSet(F):
             
         print("Only the elements that are reduced compared to {0} are kept in the set, we obtain the set {1}".format(b,F))
         
-    print("Bottomic Set B =")
+    print("Basic Set B =")
     print(B)        
     return B
 
@@ -1375,8 +1376,8 @@ def CharacSet(F) :
     S = list(copy(F))
     print("S =")
     print(S)
-    print("Computation of a bottomic set:")
-    B = bottomicSet(S)
+    print("Computation of a basic set:")
+    B = basicSet(S)
     
     while PREM(F,B).count(0) != len(PREM(F,B)):
         
@@ -1397,8 +1398,8 @@ def CharacSet(F) :
         
             print("S ∪ PREM (F,B)\{0} =")
             print(S)
-            print("Computation of a bottomic set:")
-            B = bottomicSet(S)
+            print("Computation of a basic set:")
+            B = basicSet(S)
         
         print('back in the function CharacSet')
     
@@ -1534,3 +1535,4 @@ def ensInit(Z):
     print("Computation of the set of characteristic sets of the collected crisp system:")
     result = Wu(collect)
     return (result,ensInit(result))  
+
