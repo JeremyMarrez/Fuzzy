@@ -1524,7 +1524,7 @@ def ensInit(Z):
         
     return list
     
-    def solveFuzzyPolynomialSystem(syst_depart,family):
+def solveFuzzyPolynomialSystem(syst_depart,family):
     
     """ Main algorithm for solving polynomial systems with triangular fuzzy coefficients """
     
