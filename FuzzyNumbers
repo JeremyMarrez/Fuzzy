@@ -1148,7 +1148,7 @@ class FuzzyNumberPM :
    
 #RESOLUTION WITH ALGEBRAIC METHODS
     
-    def classe(p):
+def classe(p):
     
     """ Returns the classe of a polynomial (the maximum among the indices of the variables appearing in p)"""
     
