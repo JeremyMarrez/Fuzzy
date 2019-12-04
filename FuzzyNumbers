@@ -5,1149 +5,1149 @@
 # Author : Jérémy Marrez
 
 %matplotlib inline
-	import matplotlib.pyplot as plt # side-stepping mpl backend
-	import matplotlib.gridspec as gridspec # subplots
-	
+import matplotlib.pyplot as plt # side-stepping mpl backend
+import matplotlib.gridspec as gridspec # subplots
 
-	# Make a legend for specific lines.
-	import matplotlib.pyplot as plt
-	import numpy as np
-	from numpy import *
-	
 
-	from sage.all import *
-	
+# Make a legend for specific lines.
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import *
 
-	A = QQ['r']
-	r = A.gen()
-	A
-	
 
-	add = 1
-	
+from sage.all import *
 
-	from operator import truediv
-	
 
-	class FuzzyNumber :
-	    """This class allows to create and manipulate non-reduced fuzzy numbers (core = [leftMode, rightMode])"""
-	
+A = QQ['r']
+r = A.gen()
+A
 
-	    
-	    def __init__(self, leftMode, rightMode, leftSpread, rightSpread, leftType, rightType) :
-	        
-	        """Constructor of FuzzyNumber.
-	        leftMode : the left bound of the core of the fuzzy number
-	        rightMode : the right bound of the core of the fuzzy number
-	        leftSpread : the spread of the fuzzy number to the left of the core
-	        rightSpread : the spread of the fuzzy number to the right of the core.
-	        leftType : the type of the restriction of the membership function to the left of the core
-	        rightType : the type of the restriction of the membership function to the right of the core
-	        """
-	        
-	        self.leftMode = leftMode
-	        self.rightMode = rightMode
-	        
-	        self.leftSpread = leftSpread
-	        self.rightSpread = rightSpread 
-	        
-	        self. leftType = leftType
-	        self.rightType = rightType
-	    
-	    def __str__(self) :
-	        
-	        """Displays the fuzzy number as the quadruplet (tuple)
-	        (leftMode, rightMode, leftSpread, rightSpread) and specifies its family """
-	        
-	        return "({0},{1},{2},{3}), {4} - {5}".format(self.leftMode, self.rightMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
-	    
-	    def equalFamilies(self, other):
-	        
-	        """Check if the families of self and other are the same"""
-	        
-	        if(self.leftType == other.leftType) and (self.rightType == other.rightType):
-	            
-	            return True
-	        
-	        else:
-	            
-	            return False
-	        
-	    def symmetricalFamilies(self, other):
-	        
-	        """Check if the families of self and other are the symmetrical"""
-	        
-	        if(self.leftType == other.rightType) and (self.rightType == other.leftType):
-	            
-	            return True
-	        
-	        else:
-	            
-	            return False
-	    
-	    def __neg__(self) :
-	        
-	        """Returns the opposite of the fuzzy number passed as input"""
-	        
-	        return FuzzyNumber(-self.rightMode,\
-	                          -self.leftMode,\
-	                          self.rightSpread,\
-	                          self.leftSpread,\
-	                          self.rightType,\
-	                          self.leftType)
-	        
-	    def __add__(self, other) :
-	        
-	        """Redefinition of +"""
-	        
-	        if isinstance(other,FuzzyNumberPM) : # if other is a fuzzy number, the operation is performed with self in parametric form
-	            
-	            nbPM = self.parametric_form()
-	            
-	            return nbPM + other
-	        
-	        elif isinstance(other,np.ndarray) : # if other is an array, the operation is performed with self in parametric form
-	                                                # and the function returns an array of top and bottom functions
-	            nbPM = self.parametric_form(A)
-	            
-	            tab = array( [nbPM.bottom,nbPM.top] )
-	            
-	            return tab + other
-	        
-	        elif isinstance(other,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense):
-	            global add
-	            add = (add +1)%2
-	            
-	            nbPM = self.parametric_form(A)
-	            
-	            if(add==0):
-	                return nbPM.bottom + other
-	            
-	            if(add==1):
-	                return nbPM.top + other
-	        
-	        else :
-	            if not self.equalFamilies(other):
-	                print("The operation cannot succeed because the families of the operands are different")
-	                
-	            else :
-	                return FuzzyNumber(self.leftMode + other.leftMode,\
-	                          self.rightMode + other.rightMode,\
-	                          self.leftSpread + other.leftSpread,\
-	                          self.rightSpread + other.rightSpread,\
-	                          self.leftType,\
-	                          self.rightType)
-	            
-	    def __radd__(self, other):
-	        
-	        return self + other      
-	    
-	    def __sub__(self,other) :
-	        
-	        """Redefinition of -"""                
-	            
-	        if not self.symmetricalFamilies(other):
-	            print("The operation cannot succeed because the families of the operands are not symmetrical")
-	            
-	        else :
-	
 
-	            return self + -other
-	        
-	    def __mul__(self, other) :
-	        
-	        """Redefinition of *"""
-	        
-	        if not isinstance(other,FuzzyNumber) : # if other is not a fuzzy number, the operation is performed with self in parametric form
-	            
-	            nbPM = self.parametric_form(A)
-	            
-	            tab = array( [nbPM.bottom,nbPM.top] )
-	            
-	            return tab*other
-	        
-	        else :
-	            
-	            if not self.equalFamilies(other):
-	                print("The operation cannot succeed because the families of the operands are different")
-	            
-	            else :
-	                 
-	                return FuzzyNumber(min(self.leftMode*other.leftMode,self.leftMode*other.rightMode,self.rightMode*other.leftMode,\
-	                          self.rightMode*other.rightMode),max(self.leftMode*other.leftMode,self.leftMode*other.rightMode,\
-	                          self.rightMode*other.leftMode, self.rightMode*other.rightMode),\
-	                          (abs(self.leftMode) * other.leftSpread) + (abs(other.leftMode) * self.leftSpread),\
-	                          (abs(self.rightMode) * other.rightSpread) + (abs(other.rightMode) * self.rightSpread),\
-	                          self.leftType,\
-	                          self.rightType)
-	            
-	    def __rmul__(self, other):
-	        
-	        return self * other
-	        
-	    def __invert__(self) :
-	        """Returns the inverse of the fuzzy number passed as input"""
-	        
-	        if self.leftMode.denominator()**2 == self.leftSpread.denominator() :
-	            inverse = FuzzyNumber(min(1/self.leftMode,1/self.rightMode),\
-	                                 max(1/self.leftMode,1/self.rightMode),\
-	                                 self.rightSpread / (self.rightMode**2),\
-	                                 self.leftSpread / (self.leftMode**2),\
-	                                 self.rightType,\
-	                                 self.leftType)
-	        else :
-	            inverse = FuzzyNumber(min(1/self.leftMode,1/self.rightMode),\
-	                                 max(1/self.leftMode,1/self.rightMode),\
-	                                 self.rightSpread / (self.leftMode**2),\
-	                                 self.leftSpread / (self.rightMode**2),\
-	                                 self.rightType,\
-	                                 self.leftType)
-	            
-	        return inverse
-	        
-	    def __div__(self,other) :
-	        
-	        """Redefinition of /"""
-	        
-	        if not self.symmetricalFamilies(other):
-	            print("The operation cannot succeed because the families of the operands are not symmetrical")
-	            
-	        else :
-	
+add = 1
 
-	            return self * ~other
-	    
-	    def maxi(cls,fuzzyNumber1,fuzzyNumber2) :
-	        
-	        """Returns the maximum of two fuzzy numbers"""
-	        
-	        if fuzzyNumber2.rightMode > fuzzyNumber1.rightMode :
-	            print("step 1")
-	            return fuzzyNumber2
-	        
-	        elif fuzzyNumber1.rightMode == fuzzyNumber2.rightMode :
-	            print("step 2")
-	            return FuzzyNumber(max(fuzzyNumber1.leftMode , fuzzyNumber2.leftMode),\
-	                          max(fuzzyNumber1.rightMode , fuzzyNumber2.rightMode),\
-	                          min(fuzzyNumber1.leftSpread , fuzzyNumber2.leftSpread),\
-	                          max(fuzzyNumber1.rightSpread , fuzzyNumber2.rightSpread),\
-	                          self.leftType,\
-	                          self.rightType)
-	        else :
-	            print("step 3")
-	            return fuzzyNumber1
-	        
-	    maxi = classmethod(maxi)
-	 
-	    def mini(cls,fuzzyNumber1,fuzzyNumber2) :
-	        
-	        """ Returns the minimum of two fuzzy numbers """
-	        
-	        if fuzzyNumber2.leftMode > fuzzyNumber1.leftMode :
-	            
-	            return fuzzyNumber1
-	        
-	        elif fuzzyNumber1.leftMode == fuzzyNumber2.leftMode :
-	
 
-	            return FuzzyNumber(min(fuzzyNumber1.leftMode , fuzzyNumber2.leftMode),\
-	                          min(fuzzyNumber1.rightMode , fuzzyNumber2.rightMode),\
-	                          max(fuzzyNumber1.leftSpread , fuzzyNumber2.leftSpread),\
-	                          min(fuzzyNumber1.rightSpread , fuzzyNumber2.rightSpread),\
-	                          self.leftType,\
-	                          self.rightType)
-	        else :
-	            
-	            return fuzzyNumber2
-	        
-	    mini = classmethod(mini)
-	    
-	    def equal(self, other):
-	        
-	        """Redefinition of =="""
-	        
-	        if (self.leftMode == other.leftMode) * (self.rightMode == other.rightMode) * (self.leftSpread == other.leftSpread) * (self.rightSpread == other.rightSpread)\
-	            * (self.leftType == other.leftType) * (self.rightType == other.rightType):
-	            return True
-	        
-	        else:
-	            return False        
-	        
-	    def greather_than(self,other) :
-	        
-	        """Redefinition of > as a partial order """
-	        
-	        maximum = FuzzyNumber.maxi(self,other)
-	        
-	        if(maximum == self):
-	            return True
-	     
-	        elif(maximum == other):
-	            return False
-	    
-	        else:
-	            print("These two arguments are not comparable for this partial order relation")
-	            
-	    def lower_than(self,other) :
-	        
-	        """Redefinition of < as a partial order"""
-	        
-	        minimum = FuzzyNumber.mini(self,other)
-	        
-	        if(minimum == self):
-	            return True
-	     
-	        elif(minimum == other):
-	            return False
-	    
-	        else:
-	            print("These two arguments are not comparable for this partial order relation")
-	
+from operator import truediv
 
-	    def trace(self):
-	        
-	        """ Graphical display of the function of membership of the fuzzy number according to the types of its restrictions on the left and right of its core"""
-	        
-	        if self.leftType == "Lin" :
-	            
-	            G = plot((x -self.leftMode)/self.leftSpread+1,(x,self.leftMode - self.leftSpread,self.leftMode),color='red')
-	            
-	        elif self.leftType == "Exp" :
-	            
-	            G = plot(1 - exp((-(x - self.leftMode + self.leftSpread)**2)/self.leftSpread),(x,self.leftMode - self.leftSpread,self.leftMode),color='red')
-	            
-	        elif self.leftType == "Quad" :
-	            
-	            G1 = plot(2 * ( (x- self.leftMode + self.leftSpread) / (self.leftSpread))**2,(x,self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2)),color='red')
-	            
-	            G2 = plot(1 - 2 * ( (x- self.leftMode) / (self.leftSpread))**2,(x,self.leftMode-(self.leftSpread/2), self.leftMode),color='red')
-	            
-	            G=G1+G2
-	            
-	        if self.rightType == "Lin" :    
-	            
-	            D = plot((self.rightMode - x)/self.rightSpread+1,(x,self.rightMode,self.rightMode + self.rightSpread),color='green')
-	            
-	        elif self.rightType == "Exp" :
-	            
-	            D = plot( 1 - exp((-( -x + self.rightMode + self.rightSpread)**2)/self.rightSpread),(x,self.rightMode,self.rightMode + self.rightSpread),color='green')
-	
 
-	        elif self.rightType == "Quad":
-	            
-	            D1 = plot( 1 - 2 * ( (x - self.rightMode) / (self.rightSpread))**2,(x,self.rightMode, self.rightMode+(self.rightSpread/2)),color='green')
-	            
-	            D2 = plot(2 * ( ( x - self.rightMode - self.rightSpread) / (self.rightSpread))**2,(x,self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread),color='green')
-	            D=D1+D2
-	        
-	        if not isinstance(self,RedFuzzyNumber) and (self.leftMode != self.rightMode) :
-	            M = plot(1,(x,self.leftMode,self.rightMode))
-	            return (G+M+D)
-	        
-	        return (G+D)
-	   
-	    def trace2(self):
-	        
-	        """ Graphical display in Matlab of the function of membership of the fuzzy number according to the types of its restrictions on the left and right of its core """
-	
+class FuzzyNumber :
+    """This class allows to create and manipulate non-reduced fuzzy numbers (core = [leftMode, rightMode])"""
 
-	        if self.leftType == "Lin":
-	            g = np.arange(self.leftMode-self.leftSpread, self.leftMode,0.001)
-	            lg = plt.plot(g, ((g-self.leftMode)/self.leftSpread) +1)
-	            
-	        elif self.leftType == "Quad" :
-	            
-	            g1 = np.arange(self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2),0.001)
-	            g2 = np.arange(self.leftMode-(self.leftSpread/2), self.leftMode,0.001)
-	            
-	            lg1 = plt.plot(g1, 2 * ( (g1- self.leftMode + self.leftSpread) / (self.leftSpread))**2)
-	            lg2 = plt.plot(g2, 1 - 2 * ( (g2- self.leftMode) / (self.leftSpread))**2)
-	            
-	            
-	        if self.rightType == "Lin" :
-	            d = np.arange(self.rightMode, self.rightMode + self.rightSpread,0.001)
-	            ld = plt.plot(d, ((-d+self.rightMode)/self.rightSpread) +1)
-	            
-	        elif self.rightType == "Quad" :
-	            
-	            d1 = np.arange(self.rightMode, self.rightMode+(self.rightSpread/2),0.001)
-	            d2 = np.arange(self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread,0.001)    
-	            
-	            ld1 = plt.plot(d1, 1 - 2 * ( (d1 - self.rightMode) / (self.rightSpread))**2)
-	            ld2 = plt.plot(d2, 2 * ( ( d2 - self.rightMode - self.rightSpread) / (self.rightSpread))**2)
-	    
-	    def parametric_form(self,A=None):
-	        
-	        """ Passage to the parametric form of the fuzzy number from a ring of univariate polynomials, according to the types of its restrictions to the left and right of its core """
-	           
-	        if A is None :     # if no ring is passed as a parameter
-	            B = QQ['r']
-	            r = B.gen()    # we recover the generator of the default ring	
 
-	            C=QQ['u,v']
-	            u, v = C.gens()[0], C.gens()[1]
-	                                            
-	        else:
-	            B = A['r']
-	            r = B.gen()    otherwise we recover the generator of the ring	            
-	            C=A['u,v']
-	            u, v = C.gens()[0], C.gens()[1]
-	            
-	        if self.leftType == "Lin" :
-	            
-	            bottom = self.leftMode + self.leftSpread * (r-1)
-	            
-	        elif self.leftType == "Exp" :
-	            
-	            bottom = self.leftMode - self.leftSpread + sqrt(-self.leftSpread*log(1-r))
-	        
-	        elif self.leftType == "Quad" :
-	            
-	            bottom1 = self.leftMode + self.leftSpread * (u-1)
-	            bottom2 = self.leftMode - self.leftSpread * v
-	            bottom = array( [bottom1,bottom2] )
-	
+    
+    def __init__(self, leftMode, rightMode, leftSpread, rightSpread, leftType, rightType) :
+        
+        """Constructor of FuzzyNumber.
+        leftMode : the left bound of the core of the fuzzy number
+        rightMode : the right bound of the core of the fuzzy number
+        leftSpread : the spread of the fuzzy number to the left of the core
+        rightSpread : the spread of the fuzzy number to the right of the core.
+        leftType : the type of the restriction of the membership function to the left of the core
+        rightType : the type of the restriction of the membership function to the right of the core
+        """
+        
+        self.leftMode = leftMode
+        self.rightMode = rightMode
+        
+        self.leftSpread = leftSpread
+        self.rightSpread = rightSpread 
+        
+        self. leftType = leftType
+        self.rightType = rightType
+    
+    def __str__(self) :
+        
+        """Displays the fuzzy number as the quadruplet (tuple)
+        (leftMode, rightMode, leftSpread, rightSpread) and specifies its family """
+        
+        return "({0},{1},{2},{3}), {4} - {5}".format(self.leftMode, self.rightMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
+    
+    def equalFamilies(self, other):
+        
+        """Check if the families of self and other are the same"""
+        
+        if(self.leftType == other.leftType) and (self.rightType == other.rightType):
+            
+            return True
+        
+        else:
+            
+            return False
+        
+    def symmetricalFamilies(self, other):
+        
+        """Check if the families of self and other are the symmetrical"""
+        
+        if(self.leftType == other.rightType) and (self.rightType == other.leftType):
+            
+            return True
+        
+        else:
+            
+            return False
+    
+    def __neg__(self) :
+        
+        """Returns the opposite of the fuzzy number passed as input"""
+        
+        return FuzzyNumber(-self.rightMode,\
+                          -self.leftMode,\
+                          self.rightSpread,\
+                          self.leftSpread,\
+                          self.rightType,\
+                          self.leftType)
+        
+    def __add__(self, other) :
+        
+        """Redefinition of +"""
+        
+        if isinstance(other,FuzzyNumberPM) : # if other is a fuzzy number, the operation is performed with self in parametric form
+            
+            nbPM = self.parametric_form()
+            
+            return nbPM + other
+        
+        elif isinstance(other,np.ndarray) : # if other is an array, the operation is performed with self in parametric form
+                                                # and the function returns an array of top and bottom functions
+            nbPM = self.parametric_form(A)
+            
+            tab = array( [nbPM.bottom,nbPM.top] )
+            
+            return tab + other
+        
+        elif isinstance(other,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense):
+            global add
+            add = (add +1)%2
+            
+            nbPM = self.parametric_form(A)
+            
+            if(add==0):
+                return nbPM.bottom + other
+            
+            if(add==1):
+                return nbPM.top + other
+        
+        else :
+            if not self.equalFamilies(other):
+                print("The operation cannot succeed because the families of the operands are different")
+                
+            else :
+                return FuzzyNumber(self.leftMode + other.leftMode,\
+                          self.rightMode + other.rightMode,\
+                          self.leftSpread + other.leftSpread,\
+                          self.rightSpread + other.rightSpread,\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __radd__(self, other):
+        
+        return self + other      
+    
+    def __sub__(self,other) :
+        
+        """Redefinition of -"""                
+            
+        if not self.symmetricalFamilies(other):
+            print("The operation cannot succeed because the families of the operands are not symmetrical")
+            
+        else :
 
-	        if self.rightType == "Lin" :
-	            
-	            top = self.rightMode + self.rightSpread * (1-r)
-	            
-	        elif self.rightType == "Exp" :
-	            
-	            top = self.rightMode + self.rightSpread - sqrt(-self.rightSpread*log(1-r))
-	            
-	        elif self.rightType == "Quad" :
-	        
-	            top1 = -(-self.rightMode - self.rightSpread * v)
-	            top2 = -(-self.rightMode + self.rightSpread * (u-1) )
-	            top = array( [top1,top2] )
-	            
-	        # we then construct a fuzzy number in parametric form with the two functions and the types of restrictions
-	        
-	        if A is None :    
-	            
-	            return FuzzyNumberPM(bottom, top, self.leftType + " - " + self.rightType)
-	        
-	        else :
-	            
-	            return FuzzyNumberPM(bottom, top, self.leftType + " - " + self.rightType,A)
-	
 
-	class RedFuzzyNumber(FuzzyNumber):
-	    
-	    """ This class allows to create and manipulate reduced fuzzy numbers (core = mode).
-	    
-	    It inherits the class of non-reduced fuzzy numbers """
-	
+            return self + -other
+        
+    def __mul__(self, other) :
+        
+        """Redefinition of *"""
+        
+        if not isinstance(other,FuzzyNumber) : # if other is not a fuzzy number, the operation is performed with self in parametric form
+            
+            nbPM = self.parametric_form(A)
+            
+            tab = array( [nbPM.bottom,nbPM.top] )
+            
+            return tab*other
+        
+        else :
+            
+            if not self.equalFamilies(other):
+                print("The operation cannot succeed because the families of the operands are different")
+            
+            else :
+                 
+                return FuzzyNumber(min(self.leftMode*other.leftMode,self.leftMode*other.rightMode,self.rightMode*other.leftMode,\
+                          self.rightMode*other.rightMode),max(self.leftMode*other.leftMode,self.leftMode*other.rightMode,\
+                          self.rightMode*other.leftMode, self.rightMode*other.rightMode),\
+                          (abs(self.leftMode) * other.leftSpread) + (abs(other.leftMode) * self.leftSpread),\
+                          (abs(self.rightMode) * other.rightSpread) + (abs(other.rightMode) * self.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __rmul__(self, other):
+        
+        return self * other
+        
+    def __invert__(self) :
+        """Returns the inverse of the fuzzy number passed as input"""
+        
+        if self.leftMode.denominator()**2 == self.leftSpread.denominator() :
+            inverse = FuzzyNumber(min(1/self.leftMode,1/self.rightMode),\
+                                 max(1/self.leftMode,1/self.rightMode),\
+                                 self.rightSpread / (self.rightMode**2),\
+                                 self.leftSpread / (self.leftMode**2),\
+                                 self.rightType,\
+                                 self.leftType)
+        else :
+            inverse = FuzzyNumber(min(1/self.leftMode,1/self.rightMode),\
+                                 max(1/self.leftMode,1/self.rightMode),\
+                                 self.rightSpread / (self.leftMode**2),\
+                                 self.leftSpread / (self.rightMode**2),\
+                                 self.rightType,\
+                                 self.leftType)
+            
+        return inverse
+        
+    def __div__(self,other) :
+        
+        """Redefinition of /"""
+        
+        if not self.symmetricalFamilies(other):
+            print("The operation cannot succeed because the families of the operands are not symmetrical")
+            
+        else :
 
-	    
-	    def __init__(self, mode, leftSpread, rightSpread, leftType, rightType) :
-	              
-	        """Constructor of RedFuzzyNumber.
-	        Mode : the core of the fuzzy number
-	        leftSpread : the spread of the fuzzy number to the left of the core
-	        rightSpread : the spread of the fuzzy number to the right of the core.
-	        leftType : the type of the restriction of the membership function to the left of the core
-	        rightType : the type of the restriction of the membership function to the right of the core
-	        """
-	        
-	        self.leftMode = self.rightMode = mode    # the core is reduced to one element
-	        
-	        self.leftSpread=leftSpread
-	        self.rightSpread=rightSpread
-	        
-	        self.leftType = leftType
-	        self.rightType = rightType
-	        
-	    def get_mode(self):
-	        
-	        return self.leftMode
-	        
-	    def get_leftSpread(self):
-	        
-	        return self.leftSpread
-	    
-	    def get_rightSpread(self):
-	        
-	        return self.rightSpread
-	        
-	    def __str__(self) :
-	        
-	        """ Displays the fuzzy number as the triplet (tuple)
-	        (mode, leftSpread, rightSpread) and specifies its family """
-	        
-	        return "({0},{1},{2}), {3} - {4}".format(self.leftMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
-	    
-	    def __neg__(self) :
-	        
-	        """ Returns the opposite of the fuzzy number passed as input """
-	        
-	        return RedFuzzyNumber(-self.leftMode,\
-	                          self.rightSpread,\
-	                          self.leftSpread,\
-	                          self.rightType,\
-	                          self.leftType)
-	        
-	    def __add__(self, other) :
-	        
-	        """Redefinition of +"""
-	        
-	        if isinstance(other,FuzzyNumberPM) : # if other is a fuzzy number, the operation is performed with self in parametric form	            
-	            nbPM = self.parametric_form()
-	            
-	            return nbPM + other
-	        
-	        elif isinstance(other,np.ndarray) : # if other is an array, the operation is performed with self in parametric form
-	                                                # and the function returns an array of top and bottom functions
-	            nbPM = self.parametric_form(A)
-	            
-	            tab = array( [nbPM.bottom,nbPM.top] )
-	            
-	            return tab + other
-	        
-	        elif isinstance(other,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense) or isinstance(other,sage.rings.polynomial.multi_polynomial_element.MPolynomial_polydict):
-	            global add
-	            add = (add +1)%4
-	            
-	            nbPM = self.parametric_form(A)
-	            
-	            if self.leftType == 'Lin' :
-	                       
-	                if(add%2==0):
-	                    return nbPM.bottom + other
-	            
-	                elif(add%2==1):
-	                    return nbPM.top + other
-	                
-	            if self.leftType == 'Quad':
-	                
-	                if(add==0):
-	                    return nbPM.bottom[0] + other
-	            
-	                elif(add==1):
-	                    return nbPM.bottom[1] + other
-	                
-	                elif(add==2):
-	                    return nbPM.top[0] + other
-	            
-	                elif(add==3):
-	                    return nbPM.top[1] + other
-	                            
-	        else :
-	            if not self.equalFamilies(other):
-	                print("The operation cannot succeed because the families of the operands are different")
-	                
-	            else :
-	                return RedFuzzyNumber(self.leftMode + other.leftMode,\
-	                          self.leftSpread + other.leftSpread,\
-	                          self.rightSpread + other.rightSpread,\
-	                          self.leftType,\
-	                          self.rightType)
-	            
-	    def __radd__(self, other):
-	        
-	        return self + other 
-	        
-	    def __mul__(self, other) :
-	        
-	        """Redefinition of *"""
-	        
-	        if not isinstance(other,FuzzyNumber) : # if other is not a fuzzy number, the operation is performed with self in parametric form
-	            
-	            nbPM = self.parametric_form(A)
-	            
-	            tab = array( [nbPM.bottom,nbPM.top] )
-	            
-	            return tab*other
-	        
-	        else :
-	                
-	            if not self.equalFamilies(other):
-	                print("The operation cannot succeed because the families of the operands are different")
-	            
-	            else :
-	                 
-	                return RedFuzzyNumber(self.leftMode*other.leftMode,\
-	                          (abs(self.leftMode) * other.leftSpread) + (abs(other.leftMode) * self.leftSpread),\
-	                          (abs(self.rightMode) * other.rightSpread) + (abs(other.rightMode) * self.rightSpread),\
-	                          self.leftType,\
-	                          self.rightType)
-	        
-	    def __invert__(self) :
-	        
-	        """ Returns the inverse of the fuzzy number passed as input """
-	        
-	        inverse = RedFuzzyNumber(1/self.leftMode, self.rightSpread / (self.rightMode**2),\
-	                                    self.leftSpread / (self.leftMode**2),\
-	                                    self.rightType,\
-	                                    self.leftType)
-	            
-	        return inverse
-	
 
-	class FuzzyNumberPM :
-	    """ This class allows to create and manipulate fuzzy numbers in the parametric form """
-	    
-	    def __init__(self, bottom, top, family, A=None) :
-	        
-	        """Constructor of FuzzyNumberPM
-	        bottom : the polynomial which gives for each r in [0,1] the left bound of the corresponding r-cut
-	        top : the polynomial which gives for each r in[0.1] the right bound of the corresponding r-cut
-	        family : the family of the fuzzy number
-	        para : the generator of the ring given as a parameter (or by default the generator of the polynomial ring with a variable on the rational field)
-	        """
-	        if A is None:
-	            self.bottom=bottom
-	            self.top=top
-	            self.family = family
-	            A = QQ[r]
-	            self.para = A.gen()
-	            
-	        else :
-	            
-	            self.bottom = bottom
-	            self.top = top
-	            self.family = family
-	            self.para = A.gen()
-	        
-	    def __str__(self) :
-	        
-	        """ Displays the fuzzy number as a list
-	        [bottom, top], family"""
-	        
-	        if isinstance(self.bottom, np.ndarray):
-	            
-	            bottom = list(self.bottom)
-	            
-	        else :
-	            
-	            bottom = self.bottom
-	            
-	        if isinstance(self.top, np.ndarray):
-	            
-	            top = list(self.top)  
-	            
-	        else :
-	            
-	            top = self.top
-	        
-	        return "[{0},{1}] , {2}".format(bottom, top, self.family)
-	    
-	    def get_types(self):
-	        
-	        """ From the family of the parametric fuzzy number, returns the types of restrictions """
-	        
-	        tiret = False
-	        leftType = ''
-	        rightType = ''
-	        
-	        for lettre in self.family :
-	            if lettre == '-':
-	                
-	                tiret = True
-	                
-	            elif tiret == False:
-	                
-	                leftType += lettre
-	                
-	            else :
-	                
-	                rightType += lettre
-	        
-	        leftType = leftType.strip()      
-	        leftType = leftType.capitalize()
-	        rightType = rightType.strip()
-	        rightType = rightType.capitalize()
-	    
-	        return leftType, rightType
-	    
-	    def equalFamilies(self, other):
-	        
-	        """ Checks if the families of self and other are the same """
-	        
-	        if(self.get_types()[0] == other.get_types()[0]) and (self.get_types()[1] == other.get_types()[1]):
-	            
-	            return True
-	        
-	        else:
-	            
-	            return False
-	        
-	    def symmetricalFamilies(self, other):
-	        
-	        """ Checks if the families of self and other are symmetrical """
-	        
-	        if(self.get_types()[0] == other.get_types()[1]) and (self.get_types()[1] == other.get_types()[0]):
-	            
-	            return True
-	        
-	        else:
-	            
-	            return False
-	    
-	    def __neg__(self):
-	        
-	        """ Returns the opposite of the parametric fuzzy number """
-	        
-	        if self.get_types()[0] == 'Quad' :
-	            
-	            bottom = array( [self.bottom[1],self.bottom[0]] )
-	            
-	        else :
-	            
-	            bottom = self.bottom
-	            
-	        if self.get_types()[1] == 'Quad' :
-	            
-	            top = array( [self.top[1],self.top[0]] )
-	            
-	        else :
-	            
-	            top = self.top
-	        
-	        return FuzzyNumberPM( - top, - bottom, self.get_types()[1] + " - " + self.get_types()[0], self.para.parent())
-	    
-	    def __add__(self, other):
-	        
-	        """Redefinition of +"""
-	        
-	        if isinstance(other,FuzzyNumber) or isinstance(other,RedFuzzyNumber) : # if other is a fuzzy number in the tuple form, the operation is performed after passing other in parametric form
-	            
-	            copy_other = other.parametric_form()
-	                      
-	        else :
-	            
-	            copy_other = other
-	        
-	        if not self.equalFamilies(copy_other):
-	            print("The operation cannot succeed because the families of the operands are different")
-	            
-	        else :
-	            return FuzzyNumberPM(self.bottom + copy_other.bottom, self.top + copy_other.top, self.family, self.para.parent())
-	    
-	    def __sub__(self, other):
-	        
-	        """Redefinition of -"""
-	            
-	        if not self.symmetricalFamilies(other):
-	            print("The operation cannot succeed because the families of the operands are not symmetrical")
-	            
-	        else :
-	            
-	            return self + -other
-	
+            return self * ~other
+    
+    def maxi(cls,fuzzyNumber1,fuzzyNumber2) :
+        
+        """Returns the maximum of two fuzzy numbers"""
+        
+        if fuzzyNumber2.rightMode > fuzzyNumber1.rightMode :
+            print("step 1")
+            return fuzzyNumber2
+        
+        elif fuzzyNumber1.rightMode == fuzzyNumber2.rightMode :
+            print("step 2")
+            return FuzzyNumber(max(fuzzyNumber1.leftMode , fuzzyNumber2.leftMode),\
+                          max(fuzzyNumber1.rightMode , fuzzyNumber2.rightMode),\
+                          min(fuzzyNumber1.leftSpread , fuzzyNumber2.leftSpread),\
+                          max(fuzzyNumber1.rightSpread , fuzzyNumber2.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        else :
+            print("step 3")
+            return fuzzyNumber1
+        
+    maxi = classmethod(maxi)
+ 
+    def mini(cls,fuzzyNumber1,fuzzyNumber2) :
+        
+        """ Returns the minimum of two fuzzy numbers """
+        
+        if fuzzyNumber2.leftMode > fuzzyNumber1.leftMode :
+            
+            return fuzzyNumber1
+        
+        elif fuzzyNumber1.leftMode == fuzzyNumber2.leftMode :
 
-	    
-	    def __mul__(self, other):
-	       
-	        """Redefinition of *"""
-	
 
-	         # First case: case of a product by a scalar or a polynomial isinstance(other,float) :
-	        
-	        if not isinstance(other, FuzzyNumberPM):
-	            
-	            if(other < 0):
-	                return FuzzyNumberPM(other * self.top, other * self.bottom, self.family, self.para.parent())
-	        
-	            else :
-	                return FuzzyNumberPM(other * self.bottom, other * self.top, self.family, self.para.parent())
-	
+            return FuzzyNumber(min(fuzzyNumber1.leftMode , fuzzyNumber2.leftMode),\
+                          min(fuzzyNumber1.rightMode , fuzzyNumber2.rightMode),\
+                          max(fuzzyNumber1.leftSpread , fuzzyNumber2.leftSpread),\
+                          min(fuzzyNumber1.rightSpread , fuzzyNumber2.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        else :
+            
+            return fuzzyNumber2
+        
+    mini = classmethod(mini)
+    
+    def equal(self, other):
+        
+        """Redefinition of =="""
+        
+        if (self.leftMode == other.leftMode) * (self.rightMode == other.rightMode) * (self.leftSpread == other.leftSpread) * (self.rightSpread == other.rightSpread)\
+            * (self.leftType == other.leftType) * (self.rightType == other.rightType):
+            return True
+        
+        else:
+            return False        
+        
+    def greather_than(self,other) :
+        
+        """Redefinition of > as a partial order """
+        
+        maximum = FuzzyNumber.maxi(self,other)
+        
+        if(maximum == self):
+            return True
+     
+        elif(maximum == other):
+            return False
+    
+        else:
+            print("These two arguments are not comparable for this partial order relation")
+            
+    def lower_than(self,other) :
+        
+        """Redefinition of < as a partial order"""
+        
+        minimum = FuzzyNumber.mini(self,other)
+        
+        if(minimum == self):
+            return True
+     
+        elif(minimum == other):
+            return False
+    
+        else:
+            print("These two arguments are not comparable for this partial order relation")
 
-	            # Second case: case of a product by another fuzzy number
-	        
-	        else:
-	            if not self.equalFamilies(other):
-	                print("The operation cannot succeed because the families of the operands are different")
-	            else:    
-	                return FuzzyNumberPM( min(self.bottom * other.bottom,self.bottom * other.top,self.top * other.bottom,self.top * other.top) ,\
-	                                max(self.bottom * other.bottom,self.bottom * other.top,self.top * other.bottom,self.top * other.top),\
-	                                self.family, self.para.parent())
-	            
-	            
-	    def __div__(self, other):
-	        
-	        """Redefinition of /"""
-	        
-	        if not self.symmetricalFamilies(other):
-	            print("The operation cannot succeed because the families of the operands are not symmetrical")
-	            
-	        else :
-	        
-	            if  other.bottom(0) < 0 < other.top(0):
-	                return FuzzyNumberPM( min(self.bottom / other.bottom,self.bottom / other.top,self.top / other.bottom,self.top / other.top) ,\
-	                                max(self.bottom / other.bottom,self.bottom / other.top,self.top / other.bottom,self.top / other.top),\
-	                                self.family, self.para.parent())
-	            
-	    def forme_tuple(cls,FuzzyNumberPM):
-	        
-	        
-	        leftMode = FuzzyNumberPM.bottom(1)
-	        
-	        rightMode = FuzzyNumberPM.top(1) 
-	        
-	        leftSpread = (-1) * (FuzzyNumberPM.bottom(0) - leftMode)
-	        
-	        rightSpread = (FuzzyNumberPM.top(0) - rightMode)
-	        
-	        if(FuzzyNumberPM.family == 'NombreFlouTrap') :
-	            return NombreFlouTrap(leftMode, rightMode, leftSpread, rightSpread)
-	
 
-	        if(FuzzyNumberPM.family == 'NombreFlouTri') :
-	            return NombreFlouTri(leftMode, leftSpread, rightSpread)
-	    
-	
+    def trace(self):
+        
+        """ Graphical display of the function of membership of the fuzzy number according to the types of its restrictions on the left and right of its core"""
+        
+        if self.leftType == "Lin" :
+            
+            G = plot((x -self.leftMode)/self.leftSpread+1,(x,self.leftMode - self.leftSpread,self.leftMode),color='red')
+            
+        elif self.leftType == "Exp" :
+            
+            G = plot(1 - exp((-(x - self.leftMode + self.leftSpread)**2)/self.leftSpread),(x,self.leftMode - self.leftSpread,self.leftMode),color='red')
+            
+        elif self.leftType == "Quad" :
+            
+            G1 = plot(2 * ( (x- self.leftMode + self.leftSpread) / (self.leftSpread))**2,(x,self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2)),color='red')
+            
+            G2 = plot(1 - 2 * ( (x- self.leftMode) / (self.leftSpread))**2,(x,self.leftMode-(self.leftSpread/2), self.leftMode),color='red')
+            
+            G=G1+G2
+            
+        if self.rightType == "Lin" :    
+            
+            D = plot((self.rightMode - x)/self.rightSpread+1,(x,self.rightMode,self.rightMode + self.rightSpread),color='green')
+            
+        elif self.rightType == "Exp" :
+            
+            D = plot( 1 - exp((-( -x + self.rightMode + self.rightSpread)**2)/self.rightSpread),(x,self.rightMode,self.rightMode + self.rightSpread),color='green')
 
-	    forme_tuple = classmethod(forme_tuple)
-	    
-	    def ff(self): 
-	        r=self.para
-	        Bottom=self.bottom
-	        Top=self.top
-	        return (Bottom(r) + Top(r) + Bottom(1) + Top(1))*r
-	        #return (self.bottom(r) + self.top(r) + self.bottom(1) + self.top(1))*r
-	    
-	    def mag2(self):
-	        return integral(self.ff(),r)
-	    
-	    def mag(self):
-	        
-	        r=self.para
-	        
-	        """ Calculates the magnitude of the fuzzy number """
-	        
-	        f=(self.bottom(r) + self.top(r) + self.bottom(1) + self.top(1))*r
-	        
-	        integrale = integral(f(r),r)
-	        
-	        res = truediv(integrale(1) - integrale(0),2)
-	        
-	        return res
-	    
-	    def momag(self):
-	        
-	        """ Calculates the momagnitude of the fuzzy number """
-	        
-	        f=(self.bottom(r) - self.top(r) + self.bottom(1) - self.top(1))
-	        
-	        integrale = integral(f(r),r)
-	        
-	        res = truediv(integrale(1) - integrale(0),2)
-	        
-	        return res
-	    
-	    def R(self, other):
-	        
-	        """ From 2 fuzzy numbers in parametric form A and B, calculates the quantities
-	        
-	        R(A,lambda) = Mag(A) + lambda * Momag(A) et R(B,lambda) = Mag(B) + lambda * Momag(B),
-	        
-	        où lambda = 0 si Mag(A) != Mag(B)
-	                    1 si Mag(A) == Mag(B) et z >= 0
-	                    -1 si Mag(A) == Mag(B) et z < 0
-	                    
-	        avec z = (A.bottom(1) + A.top(1))/2
-	        
-	        and returns these two values in a tuple """
-	        
-	        if (self.mag()!= other.mag()) :
-	            
-	            return (self.mag(),other.mag())
-	        
-	        else:
-	            
-	            z = truediv(self.bottom(1) + self.top(1),2)
-	                  
-	            if(z >=0):
-	                
-	                return (self.mag() + self.momag(), other.mag() + other.momag())
-	            
-	            else :
-	                
-	                 return (self.mag() - self.momag(), other.mag() - other.momag())
-	        
-	    
-	    def __eq__(self, other):
-	        
-	        """Redefinition of =="""
-	        
-	        if(self.R(other)[0] == self.R(other)[1]) :
-	            
-	            return True
-	        
-	        else :
-	            
-	            return False
-	        
-	    def __ne__(self, other):
-	        
-	        """Redefinition of !="""
-	        
-	        if(self.R(other)[0] != self.R(other)[1]) :
-	            
-	            return True
-	        
-	        else :
-	            
-	            return False
-	        
-	    def __lt__(self, other):
-	        
-	        """Redefinition of <"""
-	        
-	        if(self.R(other)[0] < self.R(other)[1]) :
-	            
-	            return True
-	        
-	        else :
-	            
-	            return False
-	        
-	    def __le__(self, other):
-	        
-	        """Redefinition of <="""
-	        
-	        if(self.R(other)[0] <= self.R(other)[1]) :
-	            
-	            return True
-	        
-	        else :
-	            
-	            return False
-	        
-	    def __gt__(self, other):
-	        
-	        """Redefinition of >"""
-	        
-	        if(self.R(other)[0] > self.R(other)[1]) :
-	            
-	            return True
-	        
-	        else :
-	            
-	            return False
-	        
-	    def __ge__(self, other):
-	        
-	        """Redefinition of >="""
-	        
-	        if(self.R(other)[0] >= self.R(other)[1]) :
-	            
-	            return True
-	        
-	        else :
-	            
-	            return False
-	        
-	    def maximum(cls,fuzzyNumber1,fuzzyNumber2) :
-	        
-	        """ Returns the maximum of two fuzzy numbers for the total order """
-	        
-	        if fuzzyNumber1 == fuzzyNumber2 :
-	            
-	            print("The two fuzzy numbers are equivalent, return the first one passed as a parameter ")
-	            
-	            return fuzzyNumber1
-	        
-	        elif fuzzyNumber1 > fuzzyNumber2 :
-	            
-	            return fuzzyNumber1
-	        
-	        else :
-	            
-	            return fuzzyNumber2
-	            
-	    maximum = classmethod(maximum)
-	    
-	    def minimum(cls,fuzzyNumber1,fuzzyNumber2) :
-	        
-	        """ Returns the min of two fuzzy numbers for the total order """
-	        
-	        if fuzzyNumber1 == fuzzyNumber2 :
-	            
-	            print("The two fuzzy numbers are equivalent, return the first one passed as a parameter ")
-	            
-	            return fuzzyNumber1
-	        
-	        elif fuzzyNumber1 < fuzzyNumber2 :
-	            
-	            return fuzzyNumber1
-	        
-	        else :
-	            
-	            return fuzzyNumber2
-	            
-	    minimum = classmethod(minimum)
-	    
-	    def maxi(cls,fuzzyNumber1,fuzzyNumber2) :
-	        
-	        """ Returns the maximum of two fuzzy numbers for the partial order """
-	        
-	        if truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) == truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
-	            
-	            if fuzzyNumber1.bottom(0) >= fuzzyNumber2.bottom(0):
-	                bottom = fuzzyNumber1.bottom
-	                
-	            else :
-	                bottom = fuzzyNumber2.bottom
-	                
-	            if fuzzyNumber1.top(0) >= fuzzyNumber2.top(0):
-	                top = fuzzyNumber1.top
-	                
-	            else :
-	                top = fuzzyNumber2.top
-	            
-	            return FuzzyNumberPM(bottom,top)
-	
 
-	        elif truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) > truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
-	            return fuzzyNumber1
-	        
-	        else :
-	            return fuzzyNumber2
-	        
-	    maxi = classmethod(maxi)
-	 
-	    def mini(csl,fuzzyNumber1,fuzzyNumber2) :
-	        
-	        """ Returns the minimum of two fuzzy numbers for the partial order """
-	        
-	        if truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) == truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
-	            
-	            if fuzzyNumber1.bottom(0) < fuzzyNumber2.bottom(0):
-	                bottom = fuzzyNumber1.bottom
-	                
-	            else :
-	                bottom = fuzzyNumber2.bottom
-	                
-	            if fuzzyNumber1.top(0) < fuzzyNumber2.top(0):
-	                top = fuzzyNumber1.top
-	                
-	            else :
-	                top = fuzzyNumber2.top
-	            
-	            return FuzzyNumberPM(bottom,top)
-	
+        elif self.rightType == "Quad":
+            
+            D1 = plot( 1 - 2 * ( (x - self.rightMode) / (self.rightSpread))**2,(x,self.rightMode, self.rightMode+(self.rightSpread/2)),color='green')
+            
+            D2 = plot(2 * ( ( x - self.rightMode - self.rightSpread) / (self.rightSpread))**2,(x,self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread),color='green')
+            D=D1+D2
+        
+        if not isinstance(self,RedFuzzyNumber) and (self.leftMode != self.rightMode) :
+            M = plot(1,(x,self.leftMode,self.rightMode))
+            return (G+M+D)
+        
+        return (G+D)
+   
+    def trace2(self):
+        
+        """ Graphical display in Matlab of the function of membership of the fuzzy number according to the types of its restrictions on the left and right of its core """
 
-	        elif truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) < truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
-	            return fuzzyNumber1
-	        
-	        else :
-	            return fuzzyNumber2
-	        
-	    mini = classmethod(mini)
-	    
-	    def equal(self, other):
-	        
-	        """Redefinition of == as a partial order"""
-	        
-	        if (self.bottom == other.bottom) * (self.top == other.top) :
-	            return True
-	        
-	        else:
-	            return False        
-	        
-	    def greather_than(self,other) :
-	        
-	        """Redefinition of > as a partial order"""
-	        
-	        maximum = FuzzyNumberPM.maxi(self,other)
-	        
-	        if(maximum == self):
-	            return True
-	     
-	        elif(maximum == other):
-	            return False
-	    
-	        else:
-	            print("These two arguments are not comparable for this partial order relation")
-	            
-	    def lower_than(self,other) :
-	        
-	        """Redefinition of > as a partial order"""
-	        
-	        minimum = FuzzyNumberPM.mini(self,other)
-	        
-	        if(minimum == self):
-	            return True
-	     
-	        elif(minimum == other):
-	            return False
-	    
-	        else:
-	            print("These two arguments are not comparable for this partial order relation")
-	                       
-	    def trace(self):
-	        
-	        """ Graphical display of the function of membership of the fuzzy number according to the bottom and top functions """
-	        
-	        if self.get_types()[0] == "Quad":
-	            
-	            G1 = plot(self.bottom[0](x),(x,0,0.5),color='red')
-	            
-	            G2 = plot(self.bottom[1](x),(x,0.5,1),color='red')
-	            
-	            G=G1+G2
-	            
-	            leftLim = self.bottom[1](1)
-	            
-	        else:
-	            
-	            G = plot(self.bottom(x),(x,0,1),color='red')
-	            
-	            leftLim = self.bottom(1)
-	            
-	        if self.get_types()[1] == "Quad":
-	            
-	            D1 = plot(self.top[0](x),(x,0.5,1),color='green')
-	            
-	            D2 = plot(self.top[1](x),(x,0,0.5),color='green')
-	            D=D1+D2
-	            
-	            rightLim = self.top[0](1)
-	            
-	        else:
-	            
-	            D = plot(self.top(x),(x,0,1),color='green')
-	            
-	            rightLim = self.top(1)
-	            
-	        M = line([(1,rightLim), (1,leftLim)])
-	        
-	        return (G+M+D)
-	    
-	    def trace2(self):
-	        
-	        """ Graphical display in Mathlab of the function of membership of the fuzzy number according to the bottom and top functions """
-	
 
-	        t = np.arange(0.0, 1.0,0.001)
-	        
-	        if self.get_types()[0] == "Quad":
-	            
-	            bottom1=self.bottom[0]
-	            bottom2=self.bottom[1]
-	            print(bottom2)
-	            lg1 = plt.plot(t, bottom1(t))
-	            lg2 = plt.plot(t, bottom2(t))
-	        
-	        else:
-	            
-	            lg = plt.plot(t, self.bottom(t))
-	        
-	        if self.get_types()[1] == "Quad":
-	 
-	            ld1 = plt.plot(t, self.top[0](t))
-	            ld2 = plt.plot(t, self.top[1](t))
-	        
-	        else:
-	            
-	            ld = plt.plot(t, self.top(t))    
-		    
+        if self.leftType == "Lin":
+            g = np.arange(self.leftMode-self.leftSpread, self.leftMode,0.001)
+            lg = plt.plot(g, ((g-self.leftMode)/self.leftSpread) +1)
+            
+        elif self.leftType == "Quad" :
+            
+            g1 = np.arange(self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2),0.001)
+            g2 = np.arange(self.leftMode-(self.leftSpread/2), self.leftMode,0.001)
+            
+            lg1 = plt.plot(g1, 2 * ( (g1- self.leftMode + self.leftSpread) / (self.leftSpread))**2)
+            lg2 = plt.plot(g2, 1 - 2 * ( (g2- self.leftMode) / (self.leftSpread))**2)
+            
+            
+        if self.rightType == "Lin" :
+            d = np.arange(self.rightMode, self.rightMode + self.rightSpread,0.001)
+            ld = plt.plot(d, ((-d+self.rightMode)/self.rightSpread) +1)
+            
+        elif self.rightType == "Quad" :
+            
+            d1 = np.arange(self.rightMode, self.rightMode+(self.rightSpread/2),0.001)
+            d2 = np.arange(self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread,0.001)    
+            
+            ld1 = plt.plot(d1, 1 - 2 * ( (d1 - self.rightMode) / (self.rightSpread))**2)
+            ld2 = plt.plot(d2, 2 * ( ( d2 - self.rightMode - self.rightSpread) / (self.rightSpread))**2)
+    
+    def parametric_form(self,A=None):
+        
+        """ Passage to the parametric form of the fuzzy number from a ring of univariate polynomials, according to the types of its restrictions to the left and right of its core """
+           
+        if A is None :     # if no ring is passed as a parameter
+            B = QQ['r']
+            r = B.gen()    # we recover the generator of the default ring
+
+            C=QQ['u,v']
+            u, v = C.gens()[0], C.gens()[1]
+                                            
+        else:
+            B = A['r']
+            r = B.gen()    otherwise we recover the generator of the ring            
+            C=A['u,v']
+            u, v = C.gens()[0], C.gens()[1]
+            
+        if self.leftType == "Lin" :
+            
+            bottom = self.leftMode + self.leftSpread * (r-1)
+            
+        elif self.leftType == "Exp" :
+            
+            bottom = self.leftMode - self.leftSpread + sqrt(-self.leftSpread*log(1-r))
+        
+        elif self.leftType == "Quad" :
+            
+            bottom1 = self.leftMode + self.leftSpread * (u-1)
+            bottom2 = self.leftMode - self.leftSpread * v
+            bottom = array( [bottom1,bottom2] )
+
+
+        if self.rightType == "Lin" :
+            
+            top = self.rightMode + self.rightSpread * (1-r)
+            
+        elif self.rightType == "Exp" :
+            
+            top = self.rightMode + self.rightSpread - sqrt(-self.rightSpread*log(1-r))
+            
+        elif self.rightType == "Quad" :
+        
+            top1 = -(-self.rightMode - self.rightSpread * v)
+            top2 = -(-self.rightMode + self.rightSpread * (u-1) )
+            top = array( [top1,top2] )
+            
+        # we then construct a fuzzy number in parametric form with the two functions and the types of restrictions
+        
+        if A is None :    
+            
+            return FuzzyNumberPM(bottom, top, self.leftType + " - " + self.rightType)
+        
+        else :
+            
+            return FuzzyNumberPM(bottom, top, self.leftType + " - " + self.rightType,A)
+
+
+class RedFuzzyNumber(FuzzyNumber):
+    
+    """ This class allows to create and manipulate reduced fuzzy numbers (core = mode).
+    
+    It inherits the class of non-reduced fuzzy numbers """
+
+
+    
+    def __init__(self, mode, leftSpread, rightSpread, leftType, rightType) :
+              
+        """Constructor of RedFuzzyNumber.
+        Mode : the core of the fuzzy number
+        leftSpread : the spread of the fuzzy number to the left of the core
+        rightSpread : the spread of the fuzzy number to the right of the core.
+        leftType : the type of the restriction of the membership function to the left of the core
+        rightType : the type of the restriction of the membership function to the right of the core
+        """
+        
+        self.leftMode = self.rightMode = mode    # the core is reduced to one element
+        
+        self.leftSpread=leftSpread
+        self.rightSpread=rightSpread
+        
+        self.leftType = leftType
+        self.rightType = rightType
+        
+    def get_mode(self):
+        
+        return self.leftMode
+        
+    def get_leftSpread(self):
+        
+        return self.leftSpread
+    
+    def get_rightSpread(self):
+        
+        return self.rightSpread
+        
+    def __str__(self) :
+        
+        """ Displays the fuzzy number as the triplet (tuple)
+        (mode, leftSpread, rightSpread) and specifies its family """
+        
+        return "({0},{1},{2}), {3} - {4}".format(self.leftMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
+    
+    def __neg__(self) :
+        
+        """ Returns the opposite of the fuzzy number passed as input """
+        
+        return RedFuzzyNumber(-self.leftMode,\
+                          self.rightSpread,\
+                          self.leftSpread,\
+                          self.rightType,\
+                          self.leftType)
+        
+    def __add__(self, other) :
+        
+        """Redefinition of +"""
+        
+        if isinstance(other,FuzzyNumberPM) : # if other is a fuzzy number, the operation is performed with self in parametric form            
+            nbPM = self.parametric_form()
+            
+            return nbPM + other
+        
+        elif isinstance(other,np.ndarray) : # if other is an array, the operation is performed with self in parametric form
+                                                # and the function returns an array of top and bottom functions
+            nbPM = self.parametric_form(A)
+            
+            tab = array( [nbPM.bottom,nbPM.top] )
+            
+            return tab + other
+        
+        elif isinstance(other,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense) or isinstance(other,sage.rings.polynomial.multi_polynomial_element.MPolynomial_polydict):
+            global add
+            add = (add +1)%4
+            
+            nbPM = self.parametric_form(A)
+            
+            if self.leftType == 'Lin' :
+                       
+                if(add%2==0):
+                    return nbPM.bottom + other
+            
+                elif(add%2==1):
+                    return nbPM.top + other
+                
+            if self.leftType == 'Quad':
+                
+                if(add==0):
+                    return nbPM.bottom[0] + other
+            
+                elif(add==1):
+                    return nbPM.bottom[1] + other
+                
+                elif(add==2):
+                    return nbPM.top[0] + other
+            
+                elif(add==3):
+                    return nbPM.top[1] + other
+                            
+        else :
+            if not self.equalFamilies(other):
+                print("The operation cannot succeed because the families of the operands are different")
+                
+            else :
+                return RedFuzzyNumber(self.leftMode + other.leftMode,\
+                          self.leftSpread + other.leftSpread,\
+                          self.rightSpread + other.rightSpread,\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __radd__(self, other):
+        
+        return self + other 
+        
+    def __mul__(self, other) :
+        
+        """Redefinition of *"""
+        
+        if not isinstance(other,FuzzyNumber) : # if other is not a fuzzy number, the operation is performed with self in parametric form
+            
+            nbPM = self.parametric_form(A)
+            
+            tab = array( [nbPM.bottom,nbPM.top] )
+            
+            return tab*other
+        
+        else :
+                
+            if not self.equalFamilies(other):
+                print("The operation cannot succeed because the families of the operands are different")
+            
+            else :
+                 
+                return RedFuzzyNumber(self.leftMode*other.leftMode,\
+                          (abs(self.leftMode) * other.leftSpread) + (abs(other.leftMode) * self.leftSpread),\
+                          (abs(self.rightMode) * other.rightSpread) + (abs(other.rightMode) * self.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        
+    def __invert__(self) :
+        
+        """ Returns the inverse of the fuzzy number passed as input """
+        
+        inverse = RedFuzzyNumber(1/self.leftMode, self.rightSpread / (self.rightMode**2),\
+                                    self.leftSpread / (self.leftMode**2),\
+                                    self.rightType,\
+                                    self.leftType)
+            
+        return inverse
+
+
+class FuzzyNumberPM :
+    """ This class allows to create and manipulate fuzzy numbers in the parametric form """
+    
+    def __init__(self, bottom, top, family, A=None) :
+        
+        """Constructor of FuzzyNumberPM
+        bottom : the polynomial which gives for each r in [0,1] the left bound of the corresponding r-cut
+        top : the polynomial which gives for each r in[0.1] the right bound of the corresponding r-cut
+        family : the family of the fuzzy number
+        para : the generator of the ring given as a parameter (or by default the generator of the polynomial ring with a variable on the rational field)
+        """
+        if A is None:
+            self.bottom=bottom
+            self.top=top
+            self.family = family
+            A = QQ[r]
+            self.para = A.gen()
+            
+        else :
+            
+            self.bottom = bottom
+            self.top = top
+            self.family = family
+            self.para = A.gen()
+        
+    def __str__(self) :
+        
+        """ Displays the fuzzy number as a list
+        [bottom, top], family"""
+        
+        if isinstance(self.bottom, np.ndarray):
+            
+            bottom = list(self.bottom)
+            
+        else :
+            
+            bottom = self.bottom
+            
+        if isinstance(self.top, np.ndarray):
+            
+            top = list(self.top)  
+            
+        else :
+            
+            top = self.top
+        
+        return "[{0},{1}] , {2}".format(bottom, top, self.family)
+    
+    def get_types(self):
+        
+        """ From the family of the parametric fuzzy number, returns the types of restrictions """
+        
+        tiret = False
+        leftType = ''
+        rightType = ''
+        
+        for lettre in self.family :
+            if lettre == '-':
+                
+                tiret = True
+                
+            elif tiret == False:
+                
+                leftType += lettre
+                
+            else :
+                
+                rightType += lettre
+        
+        leftType = leftType.strip()      
+        leftType = leftType.capitalize()
+        rightType = rightType.strip()
+        rightType = rightType.capitalize()
+    
+        return leftType, rightType
+    
+    def equalFamilies(self, other):
+        
+        """ Checks if the families of self and other are the same """
+        
+        if(self.get_types()[0] == other.get_types()[0]) and (self.get_types()[1] == other.get_types()[1]):
+            
+            return True
+        
+        else:
+            
+            return False
+        
+    def symmetricalFamilies(self, other):
+        
+        """ Checks if the families of self and other are symmetrical """
+        
+        if(self.get_types()[0] == other.get_types()[1]) and (self.get_types()[1] == other.get_types()[0]):
+            
+            return True
+        
+        else:
+            
+            return False
+    
+    def __neg__(self):
+        
+        """ Returns the opposite of the parametric fuzzy number """
+        
+        if self.get_types()[0] == 'Quad' :
+            
+            bottom = array( [self.bottom[1],self.bottom[0]] )
+            
+        else :
+            
+            bottom = self.bottom
+            
+        if self.get_types()[1] == 'Quad' :
+            
+            top = array( [self.top[1],self.top[0]] )
+            
+        else :
+            
+            top = self.top
+        
+        return FuzzyNumberPM( - top, - bottom, self.get_types()[1] + " - " + self.get_types()[0], self.para.parent())
+    
+    def __add__(self, other):
+        
+        """Redefinition of +"""
+        
+        if isinstance(other,FuzzyNumber) or isinstance(other,RedFuzzyNumber) : # if other is a fuzzy number in the tuple form, the operation is performed after passing other in parametric form
+            
+            copy_other = other.parametric_form()
+                      
+        else :
+            
+            copy_other = other
+        
+        if not self.equalFamilies(copy_other):
+            print("The operation cannot succeed because the families of the operands are different")
+            
+        else :
+            return FuzzyNumberPM(self.bottom + copy_other.bottom, self.top + copy_other.top, self.family, self.para.parent())
+    
+    def __sub__(self, other):
+        
+        """Redefinition of -"""
+            
+        if not self.symmetricalFamilies(other):
+            print("The operation cannot succeed because the families of the operands are not symmetrical")
+            
+        else :
+            
+            return self + -other
+
+
+    
+    def __mul__(self, other):
+       
+        """Redefinition of *"""
+
+
+         # First case: case of a product by a scalar or a polynomial isinstance(other,float) :
+        
+        if not isinstance(other, FuzzyNumberPM):
+            
+            if(other < 0):
+                return FuzzyNumberPM(other * self.top, other * self.bottom, self.family, self.para.parent())
+        
+            else :
+                return FuzzyNumberPM(other * self.bottom, other * self.top, self.family, self.para.parent())
+
+
+            # Second case: case of a product by another fuzzy number
+        
+        else:
+            if not self.equalFamilies(other):
+                print("The operation cannot succeed because the families of the operands are different")
+            else:    
+                return FuzzyNumberPM( min(self.bottom * other.bottom,self.bottom * other.top,self.top * other.bottom,self.top * other.top) ,\
+                                max(self.bottom * other.bottom,self.bottom * other.top,self.top * other.bottom,self.top * other.top),\
+                                self.family, self.para.parent())
+            
+            
+    def __div__(self, other):
+        
+        """Redefinition of /"""
+        
+        if not self.symmetricalFamilies(other):
+            print("The operation cannot succeed because the families of the operands are not symmetrical")
+            
+        else :
+        
+            if  other.bottom(0) < 0 < other.top(0):
+                return FuzzyNumberPM( min(self.bottom / other.bottom,self.bottom / other.top,self.top / other.bottom,self.top / other.top) ,\
+                                max(self.bottom / other.bottom,self.bottom / other.top,self.top / other.bottom,self.top / other.top),\
+                                self.family, self.para.parent())
+            
+    def forme_tuple(cls,FuzzyNumberPM):
+        
+        
+        leftMode = FuzzyNumberPM.bottom(1)
+        
+        rightMode = FuzzyNumberPM.top(1) 
+        
+        leftSpread = (-1) * (FuzzyNumberPM.bottom(0) - leftMode)
+        
+        rightSpread = (FuzzyNumberPM.top(0) - rightMode)
+        
+        if(FuzzyNumberPM.family == 'NombreFlouTrap') :
+            return NombreFlouTrap(leftMode, rightMode, leftSpread, rightSpread)
+
+
+        if(FuzzyNumberPM.family == 'NombreFlouTri') :
+            return NombreFlouTri(leftMode, leftSpread, rightSpread)
+    
+
+
+    forme_tuple = classmethod(forme_tuple)
+    
+    def ff(self): 
+        r=self.para
+        Bottom=self.bottom
+        Top=self.top
+        return (Bottom(r) + Top(r) + Bottom(1) + Top(1))*r
+        #return (self.bottom(r) + self.top(r) + self.bottom(1) + self.top(1))*r
+    
+    def mag2(self):
+        return integral(self.ff(),r)
+    
+    def mag(self):
+        
+        r=self.para
+        
+        """ Calculates the magnitude of the fuzzy number """
+        
+        f=(self.bottom(r) + self.top(r) + self.bottom(1) + self.top(1))*r
+        
+        integrale = integral(f(r),r)
+        
+        res = truediv(integrale(1) - integrale(0),2)
+        
+        return res
+    
+    def momag(self):
+        
+        """ Calculates the momagnitude of the fuzzy number """
+        
+        f=(self.bottom(r) - self.top(r) + self.bottom(1) - self.top(1))
+        
+        integrale = integral(f(r),r)
+        
+        res = truediv(integrale(1) - integrale(0),2)
+        
+        return res
+    
+    def R(self, other):
+        
+        """ From 2 fuzzy numbers in parametric form A and B, calculates the quantities
+        
+        R(A,lambda) = Mag(A) + lambda * Momag(A) et R(B,lambda) = Mag(B) + lambda * Momag(B),
+        
+        où lambda = 0 si Mag(A) != Mag(B)
+                    1 si Mag(A) == Mag(B) et z >= 0
+                    -1 si Mag(A) == Mag(B) et z < 0
+                    
+        avec z = (A.bottom(1) + A.top(1))/2
+        
+        and returns these two values in a tuple """
+        
+        if (self.mag()!= other.mag()) :
+            
+            return (self.mag(),other.mag())
+        
+        else:
+            
+            z = truediv(self.bottom(1) + self.top(1),2)
+                  
+            if(z >=0):
+                
+                return (self.mag() + self.momag(), other.mag() + other.momag())
+            
+            else :
+                
+                 return (self.mag() - self.momag(), other.mag() - other.momag())
+        
+    
+    def __eq__(self, other):
+        
+        """Redefinition of =="""
+        
+        if(self.R(other)[0] == self.R(other)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __ne__(self, other):
+        
+        """Redefinition of !="""
+        
+        if(self.R(other)[0] != self.R(other)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __lt__(self, other):
+        
+        """Redefinition of <"""
+        
+        if(self.R(other)[0] < self.R(other)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __le__(self, other):
+        
+        """Redefinition of <="""
+        
+        if(self.R(other)[0] <= self.R(other)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __gt__(self, other):
+        
+        """Redefinition of >"""
+        
+        if(self.R(other)[0] > self.R(other)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __ge__(self, other):
+        
+        """Redefinition of >="""
+        
+        if(self.R(other)[0] >= self.R(other)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def maximum(cls,fuzzyNumber1,fuzzyNumber2) :
+        
+        """ Returns the maximum of two fuzzy numbers for the total order """
+        
+        if fuzzyNumber1 == fuzzyNumber2 :
+            
+            print("The two fuzzy numbers are equivalent, return the first one passed as a parameter ")
+            
+            return fuzzyNumber1
+        
+        elif fuzzyNumber1 > fuzzyNumber2 :
+            
+            return fuzzyNumber1
+        
+        else :
+            
+            return fuzzyNumber2
+            
+    maximum = classmethod(maximum)
+    
+    def minimum(cls,fuzzyNumber1,fuzzyNumber2) :
+        
+        """ Returns the min of two fuzzy numbers for the total order """
+        
+        if fuzzyNumber1 == fuzzyNumber2 :
+            
+            print("The two fuzzy numbers are equivalent, return the first one passed as a parameter ")
+            
+            return fuzzyNumber1
+        
+        elif fuzzyNumber1 < fuzzyNumber2 :
+            
+            return fuzzyNumber1
+        
+        else :
+            
+            return fuzzyNumber2
+            
+    minimum = classmethod(minimum)
+    
+    def maxi(cls,fuzzyNumber1,fuzzyNumber2) :
+        
+        """ Returns the maximum of two fuzzy numbers for the partial order """
+        
+        if truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) == truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
+            
+            if fuzzyNumber1.bottom(0) >= fuzzyNumber2.bottom(0):
+                bottom = fuzzyNumber1.bottom
+                
+            else :
+                bottom = fuzzyNumber2.bottom
+                
+            if fuzzyNumber1.top(0) >= fuzzyNumber2.top(0):
+                top = fuzzyNumber1.top
+                
+            else :
+                top = fuzzyNumber2.top
+            
+            return FuzzyNumberPM(bottom,top)
+
+
+        elif truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) > truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
+            return fuzzyNumber1
+        
+        else :
+            return fuzzyNumber2
+        
+    maxi = classmethod(maxi)
+ 
+    def mini(csl,fuzzyNumber1,fuzzyNumber2) :
+        
+        """ Returns the minimum of two fuzzy numbers for the partial order """
+        
+        if truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) == truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
+            
+            if fuzzyNumber1.bottom(0) < fuzzyNumber2.bottom(0):
+                bottom = fuzzyNumber1.bottom
+                
+            else :
+                bottom = fuzzyNumber2.bottom
+                
+            if fuzzyNumber1.top(0) < fuzzyNumber2.top(0):
+                top = fuzzyNumber1.top
+                
+            else :
+                top = fuzzyNumber2.top
+            
+            return FuzzyNumberPM(bottom,top)
+
+
+        elif truediv(fuzzyNumber1.top(1)+fuzzyNumber1.bottom(1),2) < truediv(fuzzyNumber2.top(1)+fuzzyNumber2.bottom(1),2):
+            return fuzzyNumber1
+        
+        else :
+            return fuzzyNumber2
+        
+    mini = classmethod(mini)
+    
+    def equal(self, other):
+        
+        """Redefinition of == as a partial order"""
+        
+        if (self.bottom == other.bottom) * (self.top == other.top) :
+            return True
+        
+        else:
+            return False        
+        
+    def greather_than(self,other) :
+        
+        """Redefinition of > as a partial order"""
+        
+        maximum = FuzzyNumberPM.maxi(self,other)
+        
+        if(maximum == self):
+            return True
+     
+        elif(maximum == other):
+            return False
+    
+        else:
+            print("These two arguments are not comparable for this partial order relation")
+            
+    def lower_than(self,other) :
+        
+        """Redefinition of > as a partial order"""
+        
+        minimum = FuzzyNumberPM.mini(self,other)
+        
+        if(minimum == self):
+            return True
+     
+        elif(minimum == other):
+            return False
+    
+        else:
+            print("These two arguments are not comparable for this partial order relation")
+                       
+    def trace(self):
+        
+        """ Graphical display of the function of membership of the fuzzy number according to the bottom and top functions """
+        
+        if self.get_types()[0] == "Quad":
+            
+            G1 = plot(self.bottom[0](x),(x,0,0.5),color='red')
+            
+            G2 = plot(self.bottom[1](x),(x,0.5,1),color='red')
+            
+            G=G1+G2
+            
+            leftLim = self.bottom[1](1)
+            
+        else:
+            
+            G = plot(self.bottom(x),(x,0,1),color='red')
+            
+            leftLim = self.bottom(1)
+            
+        if self.get_types()[1] == "Quad":
+            
+            D1 = plot(self.top[0](x),(x,0.5,1),color='green')
+            
+            D2 = plot(self.top[1](x),(x,0,0.5),color='green')
+            D=D1+D2
+            
+            rightLim = self.top[0](1)
+            
+        else:
+            
+            D = plot(self.top(x),(x,0,1),color='green')
+            
+            rightLim = self.top(1)
+            
+        M = line([(1,rightLim), (1,leftLim)])
+        
+        return (G+M+D)
+    
+    def trace2(self):
+        
+        """ Graphical display in Mathlab of the function of membership of the fuzzy number according to the bottom and top functions """
+
+
+        t = np.arange(0.0, 1.0,0.001)
+        
+        if self.get_types()[0] == "Quad":
+            
+            bottom1=self.bottom[0]
+            bottom2=self.bottom[1]
+            print(bottom2)
+            lg1 = plt.plot(t, bottom1(t))
+            lg2 = plt.plot(t, bottom2(t))
+        
+        else:
+            
+            lg = plt.plot(t, self.bottom(t))
+        
+        if self.get_types()[1] == "Quad":
+ 
+            ld1 = plt.plot(t, self.top[0](t))
+            ld2 = plt.plot(t, self.top[1](t))
+        
+        else:
+            
+            ld = plt.plot(t, self.top(t))    
+    
 #RESOLUTION WITH ALGEBRAIC METHODS
-	    
-	    def class(p):
+    
+    def class(p):
     
     """ Returns the class of a polynomial (the maximum among the indices of the variables appearing in p)"""
     
@@ -1532,4 +1532,4 @@ def ensInit(Z):
     print(collect)
     print("Computation of the set of characteristic sets of the collected crisp system:")
     result = Wu(collect)
-    return (result,ensInit(result)) 
+    return (result,ensInit(result))  
