@@ -1524,7 +1524,7 @@ def ensInit(Z):
         
     return list
     
-def solveFuzzyPolynomialSystem(syst_depart,family):
+def positiveSolutionsFuzzySystem(syst_depart,family):
     
     """ Main algorithm for solving polynomial systems with triangular fuzzy coefficients """
     
@@ -1643,7 +1643,7 @@ def reconstruction_systems(M,r):
         Systems.append(System)
     return Systems   
     
-def solutions_signees(nb_variables,system_start):
+def signed_solutions(nb_variables,system_start):
     
     
     S=possible_signs(nb_variables)
@@ -1656,7 +1656,7 @@ def solutions_signees(nb_variables,system_start):
 
     for system in Systems_signs:
     
-        RES.append(solveFuzzyPolynomialSystem(system,"Quad"))
+        RES.append(positiveSolutionsFuzzySystem(system,"Quad"))
     
     return RES
     
@@ -1802,7 +1802,7 @@ def normalize_system(System):
 
     return system_normalize
     
-def resolution_real_systems_fuzzy(System, n):
+def SolvingFuzzySystem(System, n):
     
     continue_main_loop = 0
     
@@ -1854,5 +1854,3 @@ def resolution_real_systems_fuzzy(System, n):
             sol.insert(j,sol[i])
             
     return sol 
-
-
