@@ -1450,7 +1450,7 @@ def Wu(F):
 
     return Z
     
-    def syst_collect(syst_dep,family):
+def syst_collect(syst_dep,family):
     
     """ Computation from a starting system of the collectd crisp system """
     
