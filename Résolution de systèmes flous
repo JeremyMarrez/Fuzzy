@@ -1504,7 +1504,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
     resultat = Wu(collecte)
     return (resultat,ensInit(resultat))
     
-    def binary_base(number):
+def binary_base(number):
     
     L = list()
     if number == 0 :
@@ -1521,7 +1521,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
     L.reverse()
     return L
     
-    def MultiSigne(j,n):
+def MultiSigne(j,n):
     
     if(j < 2**n):
     
@@ -1538,7 +1538,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
         
         return I
         
-        def get_terms(System):
+def get_terms(System):
 
     Terms = list()
 
@@ -1551,7 +1551,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
 
     return Terms
     
-    def colonne_signee(Terms, I):
+def colonne_signee(Terms, I):
 
     C = list()
     for term in Terms:
@@ -1567,7 +1567,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
         C.append(term)
     return C
     
-    def reconstruction_systems(System,I):
+def reconstruction_systems(System,I):
     
     Terms = get_terms(System)
     #print(Terms)
@@ -1610,7 +1610,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
     System_signe=list(System_signe)
     return System_signe
     
-    def listes_comparaison(c1, c2):
+def listes_comparaison(c1, c2):
     """
     Fonction comparant les valeurs contenues dans deux tableaux deux à deux. La première valeur de c1 avec
     celle de c2, puis la 2ème de c1 avec la deuxième de c2 etc...
@@ -1628,7 +1628,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
         # S'il n'y a pas eu de discordance entre les deux listes, on arrive ici et on revoie donc True
         return True
         
-        def liste_deja_connue(L, ens_listes):
+def liste_deja_connue(L, ens_listes):
     
     cpt = -1
     for liste in ens_listes:
@@ -1638,7 +1638,7 @@ def solveFuzzyPolynomialSystem(syst_depart,famille):
         
     return -1
     
-    def normalise_systeme(Systeme):
+def normalise_systeme(Systeme):
     
     systeme_normalise = list()
     
@@ -1670,7 +1670,7 @@ def NouveauSysteme(systeme_SI, liste_systemes):
     
     return -1        
     
-    def resolution_reelle_systemes_flous(System, n):
+def resolution_reelle_systemes_flous(System, n):
     
     cpt = -1
     
@@ -1734,7 +1734,7 @@ def NouveauSysteme(systeme_SI, liste_systemes):
         print "\n"
     return sol
     
-    def kronecker_product(L1, L2):
+def kronecker_product(L1, L2):
     Res = list(0 for i in range(len(L1)))
     for i in range(len(L1)):
         if L1[i]==-1 and L2[i]=="R+":
@@ -1746,7 +1746,7 @@ def NouveauSysteme(systeme_SI, liste_systemes):
     Res=tuple(Res)
     return Res
     
-    def SolPos(systeme):
+def SolPos(systeme):
     
     ens_ens_car = Wu(systeme)
     
@@ -1817,7 +1817,7 @@ def get_zeros(result):
     forget()
     return solution_positives
     
-    def kronecker_ens(element1, ensemble):
+def kronecker_ens(element1, ensemble):
     
     resultat = set()
     for element2 in ensemble:
@@ -1826,7 +1826,7 @@ def get_zeros(result):
 
     return resultat
         
-    def affiche_gestion_de_signes(j,I):
+def affiche_gestion_de_signes(j,I):
     print "Pour j = ", j," : ",
     print "I = ",I,", ",
     
