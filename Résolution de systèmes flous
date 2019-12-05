@@ -1,0 +1,1841 @@
+# Bibliothèque Fuzzy
+
+# Modélisation de nombres flous et résolution de systèmes de polynômes à coefficients flous triangulaires ou réels
+
+# Auteur : Jérémy Marrez
+
+%matplotlib inline
+import matplotlib.pyplot as plt # side-stepping mpl backend
+import matplotlib.gridspec as gridspec # subplots
+
+# Make a legend for specific lines.
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import *
+
+from sage.all import *
+
+A = QQ['r']
+r = A.gen()
+A
+
+ajout = 1
+
+from operator import truediv
+
+class NombreFlou :
+    """Cette classe permet de créer et de manipuler des nombres flous non réduits (noyau = [leftMode, rightMode])"""
+
+    
+    def __init__(self, leftMode, rightMode, leftSpread, rightSpread, leftType, rightType) :
+        
+        """Constructeur de NombreFlou.
+        leftMode : la borne gauche du noyau du nombre flou
+        rightMode : la borne droite du noyau du nombre flou
+        leftSpread : la propagation du nombre flou à gauche du noyau
+        rightSpread : la propagation du nombre flou à droite du noyau
+        leftType : le type de la restriction de la fontion d'appartenance à gauche du noyau
+        rightType : le type de la restriction de la fontion d'appartenance à droite du noyau
+        """
+        
+        self.leftMode = leftMode
+        self.rightMode = rightMode
+        
+        self.leftSpread = leftSpread
+        self.rightSpread = rightSpread 
+        
+        self. leftType = leftType
+        self.rightType = rightType
+    
+    def __str__(self) :
+        
+        """Affiche le nombre flou sous la forme du quadruplet (tuple)
+        (leftMode, rightMode, leftSpread, rightSpread) et précise sa famille"""
+        
+        return "({0},{1},{2},{3}), {4} - {5}".format(self.leftMode, self.rightMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
+    
+    def famillesEgales(self, autre):
+        
+        """Vérifie si les familles de self et autre sont les mêmes"""
+        
+        if(self.leftType == autre.leftType) and (self.rightType == autre.rightType):
+            
+            return True
+        
+        else:
+            
+            return False
+        
+    def famillesSymetriques(self, autre):
+        
+        """Vérifie si les familles de self et autre sont symétriques"""
+        
+        if(self.leftType == autre.rightType) and (self.rightType == autre.leftType):
+            
+            return True
+        
+        else:
+            
+            return False
+    
+    def __neg__(self) :
+        
+        """Renvoie l'opposé du nombre flou passé en entrée"""
+        
+        return NombreFlou(-self.rightMode,\
+                          -self.leftMode,\
+                          self.rightSpread,\
+                          self.leftSpread,\
+                          self.rightType,\
+                          self.leftType)
+        
+    def __add__(self, autre) :
+        
+        """Redéfinition de +"""
+        
+        if isinstance(autre,NombreFlouPM) : # si autre est un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique()
+            
+            return nbPM + autre
+        
+        elif isinstance(autre,np.ndarray) : # si autre est un tableau, on effectue l'opération avec self sous forme paramétrique
+                                                # et on renvoie un tableau des fonctions haut et bas
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab + autre
+        
+        elif isinstance(autre,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense):
+            global ajout
+            ajout = (ajout +1)%2
+            
+            nbPM = self.forme_parametrique(A)
+            
+            if(ajout==0):
+                return nbPM.bas + autre
+            
+            if(ajout==1):
+                return nbPM.haut + autre
+        
+        else :
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+                
+            else :
+                return NombreFlou(self.leftMode + autre.leftMode,\
+                          self.rightMode + autre.rightMode,\
+                          self.leftSpread + autre.leftSpread,\
+                          self.rightSpread + autre.rightSpread,\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __radd__(self, autre):
+        
+        return self + autre      
+    
+    def __sub__(self,autre) :
+        
+        """Redéfinition de -"""                
+            
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+
+            return self + -autre
+        
+    def __mul__(self, autre) :
+        
+        """Redéfinition de *"""
+        
+        if not isinstance(autre,NombreFlou) : # si autre n'est pas un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab*autre
+        
+        else :
+            
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            
+            else :
+                 
+                return NombreFlou(min(self.leftMode*autre.leftMode,self.leftMode*autre.rightMode,self.rightMode*autre.leftMode,\
+                          self.rightMode*autre.rightMode),mat(self.leftMode*autre.leftMode,self.leftMode*autre.rightMode,\
+                          self.rightMode*autre.leftMode, self.rightMode*autre.rightMode),\
+                          (abs(self.leftMode) * autre.leftSpread) + (abs(autre.leftMode) * self.leftSpread),\
+                          (abs(self.rightMode) * autre.rightSpread) + (abs(autre.rightMode) * self.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __rmul__(self, autre):
+        
+        return self * autre
+        
+    def __invert__(self) :
+        """Renvoie l'inverse du nombre flou passé en entrée"""
+        
+        if self.leftMode.denominator()**2 == self.leftSpread.denominator() :
+            inverse = NombreFlou(min(1/self.leftMode,1/self.rightMode),\
+                                 mat(1/self.leftMode,1/self.rightMode),\
+                                 self.rightSpread / (self.rightMode**2),\
+                                 self.leftSpread / (self.leftMode**2),\
+                                 self.rightType,\
+                                 self.leftType)
+        else :
+            inverse = NombreFlou(min(1/self.leftMode,1/self.rightMode),\
+                                 mat(1/self.leftMode,1/self.rightMode),\
+                                 self.rightSpread / (self.leftMode**2),\
+                                 self.leftSpread / (self.rightMode**2),\
+                                 self.rightType,\
+                                 self.leftType)
+            
+        return inverse
+        
+    def __div__(self,autre) :
+        
+        """Redéfinition de /"""
+        
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+
+            return self * ~autre
+    
+    def mati(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le mat de deut nombres flous"""
+        
+        if nombreFlou2.rightMode > nombreFlou1.rightMode :
+            print("etape 1")
+            return nombreFlou2
+        
+        elif nombreFlou1.rightMode == nombreFlou2.rightMode :
+            print("etape 2")
+            return NombreFlou(mat(nombreFlou1.leftMode , nombreFlou2.leftMode),\
+                          mat(nombreFlou1.rightMode , nombreFlou2.rightMode),\
+                          min(nombreFlou1.leftSpread , nombreFlou2.leftSpread),\
+                          mat(nombreFlou1.rightSpread , nombreFlou2.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        else :
+            print("etape 3")
+            return nombreFlou1
+        
+    mati = classmethod(mati)
+ 
+    def mini(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le min de deut nombres flous"""
+        
+        if nombreFlou2.leftMode > nombreFlou1.leftMode :
+            
+            return nombreFlou1
+        
+        elif nombreFlou1.leftMode == nombreFlou2.leftMode :
+
+            return NombreFlou(min(nombreFlou1.leftMode , nombreFlou2.leftMode),\
+                          min(nombreFlou1.rightMode , nombreFlou2.rightMode),\
+                          mat(nombreFlou1.leftSpread , nombreFlou2.leftSpread),\
+                          min(nombreFlou1.rightSpread , nombreFlou2.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        else :
+            
+            return nombreFlou2
+        
+    mini = classmethod(mini)
+    
+    def egale(self, autre):
+        
+        """Redéfinition de =="""
+        
+        if (self.leftMode == autre.leftMode) * (self.rightMode == autre.rightMode) * (self.leftSpread == autre.leftSpread) * (self.rightSpread == autre.rightSpread)\
+            * (self.leftType == autre.leftType) * (self.rightType == autre.rightType):
+            return True
+        
+        else:
+            return False        
+        
+    def plusgrand(self,autre) :
+        
+        """Redéfinition de > comme ordre partiel"""
+        
+        matimum = NombreFlou.mati(self,autre)
+        
+        if(matimum == self):
+            return True
+     
+        elif(matimum == autre):
+            return False
+    
+        else:
+            print("Ces deut arguments ne sont pas comparables pour cette relation d'ordre partiel")
+            
+    def pluspetit(self,autre) :
+        
+        """Redéfinition de < comme ordre partiel"""
+        
+        minimum = NombreFlou.mini(self,autre)
+        
+        if(minimum == self):
+            return True
+     
+        elif(minimum == autre):
+            return False
+    
+        else:
+            print("Ces deut arguments ne sont pas comparables pour cette relation d'ordre partiel")
+
+    def trace(self):
+        
+        """Affichage graphique de la fonction d'appartenance du nombre flou en fonction des types
+        de ses restrictions à gauche et à droite de son noyau"""
+        
+        if self.leftType == "Lin" :
+            
+            G = plot((t -self.leftMode)/self.leftSpread+1,(t,self.leftMode - self.leftSpread,self.leftMode),color='red')
+            
+        elif self.leftType == "Etp" :
+            
+            G = plot(1 - etp((-(t - self.leftMode + self.leftSpread)**2)/self.leftSpread),(t,self.leftMode - self.leftSpread,self.leftMode),color='red')
+            
+        elif self.leftType == "Quad" :
+            
+            G1 = plot(2 * ( (t- self.leftMode + self.leftSpread) / (self.leftSpread))**2,(t,self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2)),color='red')
+            
+            G2 = plot(1 - 2 * ( (t- self.leftMode) / (self.leftSpread))**2,(t,self.leftMode-(self.leftSpread/2), self.leftMode),color='red')
+            
+            G=G1+G2
+            
+        if self.rightType == "Lin" :    
+            
+            D = plot((self.rightMode - t)/self.rightSpread+1,(t,self.rightMode,self.rightMode + self.rightSpread),color='green')
+            
+        elif self.rightType == "Etp" :
+            
+            D = plot( 1 - etp((-( -t + self.rightMode + self.rightSpread)**2)/self.rightSpread),(t,self.rightMode,self.rightMode + self.rightSpread),color='green')
+
+        elif self.rightType == "Quad":
+            
+            D1 = plot( 1 - 2 * ( (t - self.rightMode) / (self.rightSpread))**2,(t,self.rightMode, self.rightMode+(self.rightSpread/2)),color='green')
+            
+            D2 = plot(2 * ( ( t - self.rightMode - self.rightSpread) / (self.rightSpread))**2,(t,self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread),color='green')
+            D=D1+D2
+        
+        if not isinstance(self,NombreFlouRed) and (self.leftMode != self.rightMode) :
+            M = plot(1,(t,self.leftMode,self.rightMode))
+            return (G+M+D)
+        
+        return (G+D)
+   
+    def trace2(self):
+        
+        """Affichage graphique en MathLab de la fonction d'appartenance du nombre flou en fonction des types
+        de ses restrictions à gauche et à droite de son noyau"""
+
+        if self.leftType == "Lin":
+            g = np.arange(self.leftMode-self.leftSpread, self.leftMode,0.001)
+            lg = plt.plot(g, ((g-self.leftMode)/self.leftSpread) +1)
+            
+        elif self.leftType == "Quad" :
+            
+            g1 = np.arange(self.leftMode-self.leftSpread, self.leftMode-(self.leftSpread/2),0.001)
+            g2 = np.arange(self.leftMode-(self.leftSpread/2), self.leftMode,0.001)
+            
+            lg1 = plt.plot(g1, 2 * ( (g1- self.leftMode + self.leftSpread) / (self.leftSpread))**2)
+            lg2 = plt.plot(g2, 1 - 2 * ( (g2- self.leftMode) / (self.leftSpread))**2)
+            
+            
+        if self.rightType == "Lin" :
+            d = np.arange(self.rightMode, self.rightMode + self.rightSpread,0.001)
+            ld = plt.plot(d, ((-d+self.rightMode)/self.rightSpread) +1)
+            
+        elif self.rightType == "Quad" :
+            
+            d1 = np.arange(self.rightMode, self.rightMode+(self.rightSpread/2),0.001)
+            d2 = np.arange(self.rightMode+(self.rightSpread/2), self.rightMode+self.rightSpread,0.001)    
+            
+            ld1 = plt.plot(d1, 1 - 2 * ( (d1 - self.rightMode) / (self.rightSpread))**2)
+            ld2 = plt.plot(d2, 2 * ( ( d2 - self.rightMode - self.rightSpread) / (self.rightSpread))**2)
+    
+    def forme_parametrique(self,A=None):
+        
+        """Passage à la forme paramétrique du nombre flou à partir d'un anneau de polynômes univariés,
+        en fonction des types de ses restrictions à gauche et à droite de son noyau"""
+           
+        if A is None :     # si aucun anneau n'est passé en paramètre
+            B = QQ['r']
+            r = B.gen()    # on récupère le générateur de l'anneau par défaut
+
+            C=QQ['u,v']
+            u, v = C.gens()[0], C.gens()[1]
+                                            
+        else:
+            B = A['r']
+            r = B.gen()    # sinon on récupère le générateur de l'anneau
+            
+            C=A['u,v']
+            u, v = C.gens()[0], C.gens()[1]
+            
+        if self.leftType == "Lin" :
+            
+            bas = self.leftMode + self.leftSpread * (r-1)
+            
+        elif self.leftType == "Etp" :
+            
+            bas = self.leftMode - self.leftSpread + sqrt(-self.leftSpread*log(1-r))
+        
+        elif self.leftType == "Quad" :
+            
+            bas1 = self.leftMode + self.leftSpread * (u-1)
+            bas2 = self.leftMode - self.leftSpread * v
+            bas = array( [bas1,bas2] )
+
+        if self.rightType == "Lin" :
+            
+            haut = self.rightMode + self.rightSpread * (1-r)
+            
+        elif self.rightType == "Etp" :
+            
+            haut = self.rightMode + self.rightSpread - sqrt(-self.rightSpread*log(1-r))
+            
+        elif self.rightType == "Quad" :
+        
+            haut1 = -(-self.rightMode - self.rightSpread * v)
+            haut2 = -(-self.rightMode + self.rightSpread * (u-1) )
+            haut = array( [haut1,haut2] )
+            
+        # on construit alors un nombre flou sous forme paramétrique avec les deut fonctions et les types des restrictions
+        
+        if A is None :    
+            
+            return NombreFlouPM(bas, haut, self.leftType + " - " + self.rightType)
+        
+        else :
+            
+            return NombreFlouPM(bas, haut, self.leftType + " - " + self.rightType,A)
+
+class NombreFlouRed(NombreFlou):
+    
+    """Cette classe permet de créer et de manipuler des nombres flous réduit (noyau = mode).
+    
+    Elle hérite de la classe des nombres flous non réduits"""
+
+    
+    def __init__(self, mode, leftSpread, rightSpread, leftType, rightType) :
+              
+        """Constructeur de NombreFlouRed.
+        Mode : le noyau du nombre flou
+        leftSpread : la propagation du nombre flou à gauche du noyau
+        rightSpread : la propagation du nombre flou à droite du noyau
+        leftType : le type de la restriction de la fontion d'appartenance à gauche du noyau
+        rightType : le type de la restriction de la fontion d'appartenance à droite du noyau
+        """
+        
+        self.leftMode = self.rightMode = mode    # le noyau est réduit à un élément
+        
+        self.leftSpread=leftSpread
+        self.rightSpread=rightSpread
+        
+        self.leftType = leftType
+        self.rightType = rightType
+        
+    def get_mode(self):
+        
+        return self.leftMode
+        
+    def get_leftSpread(self):
+        
+        return self.leftSpread
+    
+    def get_rightSpread(self):
+        
+        return self.rightSpread
+        
+    def __str__(self) :
+        
+        """Affiche le nombre flou sous la forme du triplet (tuple)
+        (mode, leftSpread, rightSpread) et précise sa famille"""
+        
+        return "({0},{1},{2}), {3} - {4}".format(self.leftMode, self.leftSpread, self.rightSpread, self.leftType, self.rightType)
+    
+    def __neg__(self) :
+        
+        """Renvoie l'opposé du nombre flou passé en entrée"""
+        
+        return NombreFlouRed(-self.leftMode,\
+                          self.rightSpread,\
+                          self.leftSpread,\
+                          self.rightType,\
+                          self.leftType)
+        
+    def __add__(self, autre) :
+        
+        """Redéfinition de +"""
+        
+        if isinstance(autre,NombreFlouPM) : # si autre est un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique()
+            
+            return nbPM + autre
+        
+        elif isinstance(autre,np.ndarray) : # si autre est un tableau, on effectue l'opération avec self sous forme paramétrique
+                                                # et on renvoie un tableau des fonctions haut et bas
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab + autre
+        
+        elif isinstance(autre,sage.rings.polynomial.polynomial_element.Polynomial_generic_dense) or isinstance(autre,sage.rings.polynomial.multi_polynomial_element.MPolynomial_polydict):
+            global ajout
+            ajout = (ajout +1)%4
+            
+            nbPM = self.forme_parametrique(A)
+            
+            if self.leftType == 'Lin' :
+                       
+                if(ajout%2==0):
+                    return nbPM.bas + autre
+            
+                elif(ajout%2==1):
+                    return nbPM.haut + autre
+                
+            if self.leftType == 'Quad':
+                
+                if(ajout==0):
+                    return nbPM.bas[0] + autre
+            
+                elif(ajout==1):
+                    return nbPM.bas[1] + autre
+                
+                elif(ajout==2):
+                    return nbPM.haut[0] + autre
+            
+                elif(ajout==3):
+                    return nbPM.haut[1] + autre
+                            
+        else :
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+                
+            else :
+                return NombreFlouRed(self.leftMode + autre.leftMode,\
+                          self.leftSpread + autre.leftSpread,\
+                          self.rightSpread + autre.rightSpread,\
+                          self.leftType,\
+                          self.rightType)
+            
+    def __radd__(self, autre):
+        
+        return self + autre 
+        
+    def __mul__(self, autre) :
+        
+        """Redéfinition de *"""
+        
+        if not isinstance(autre,NombreFlou) : # si autre n'est pas un nombre flou, on effectue l'opération avec self sous forme paramétrique
+            
+            nbPM = self.forme_parametrique(A)
+            
+            tab = array( [nbPM.bas,nbPM.haut] )
+            
+            return tab*autre
+        
+        else :
+                
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            
+            else :
+                 
+                return NombreFlouRed(self.leftMode*autre.leftMode,\
+                          (abs(self.leftMode) * autre.leftSpread) + (abs(autre.leftMode) * self.leftSpread),\
+                          (abs(self.rightMode) * autre.rightSpread) + (abs(autre.rightMode) * self.rightSpread),\
+                          self.leftType,\
+                          self.rightType)
+        
+    def __invert__(self) :
+        
+        """Renvoie l'inverse du nombre flou passé en entrée"""
+        
+        inverse = NombreFlouRed(1/self.leftMode, self.rightSpread / (self.rightMode**2),\
+                                    self.leftSpread / (self.leftMode**2),\
+                                    self.rightType,\
+                                    self.leftType)
+            
+        return inverse
+
+class NombreFlouPM :
+    """Cette classe permet de créer et de manipuler des nombres flous sous la forme paramétrique"""
+    
+    def __init__(self, bas, haut, famille, A=None) :
+        
+        """Constructeur de NombreFlou.
+        bas : le polynôme qui donne pour chaque r dans [0,1] la borne gauche de la coupe-r correspondante
+        haut : le polynôme qui donne pour chaque r dans [0,1] la borne droite de la coupe-r correspondante
+        famille : la famille du nombre flou
+        para : le générateur de l'anneau donné en paramètre (ou par défaut le générateur de l'anneau de polynômes à une variable sur le corps de rationnels)
+        """
+        if A is None:
+            self.bas=bas
+            self.haut=haut
+            self.famille = famille
+            A = QQ[r]
+            self.para = A.gen()
+            
+        else :
+            
+            self.bas = bas
+            self.haut = haut
+            self.famille = famille
+            self.para = A.gen()
+        
+    def __str__(self) :
+        
+        """Affiche le nombre flou sous la forme d'une liste
+        [bas, haut], famille"""
+        
+        if isinstance(self.bas, np.ndarray):
+            
+            bas = list(self.bas)
+            
+        else :
+            
+            bas = self.bas
+            
+        if isinstance(self.haut, np.ndarray):
+            
+            haut = list(self.haut)  
+            
+        else :
+            
+            haut = self.haut
+        
+        return "[{0},{1}] , {2}".format(bas, haut, self.famille)
+    
+    def get_types(self):
+        
+        """À partir de la famille du nombre flou paramétrique, renvoie les types des restrictions"""
+        
+        tiret = False
+        leftType = ''
+        rightType = ''
+        
+        for lettre in self.famille :
+            if lettre == '-':
+                
+                tiret = True
+                
+            elif tiret == False:
+                
+                leftType += lettre
+                
+            else :
+                
+                rightType += lettre
+        
+        leftType = leftType.strip()      
+        leftType = leftType.capitalize()
+        rightType = rightType.strip()
+        rightType = rightType.capitalize()
+    
+        return leftType, rightType
+    
+    def famillesEgales(self, autre):
+        
+        """Vérifie si les familles de self et autre sont les mêmes"""
+        
+        if(self.get_types()[0] == autre.get_types()[0]) and (self.get_types()[1] == autre.get_types()[1]):
+            
+            return True
+        
+        else:
+            
+            return False
+        
+    def famillesSymetriques(self, autre):
+        
+        """Vérifie si les familles de self et autre sont symétriques"""
+        
+        if(self.get_types()[0] == autre.get_types()[1]) and (self.get_types()[1] == autre.get_types()[0]):
+            
+            return True
+        
+        else:
+            
+            return False
+    
+    def __neg__(self):
+        
+        """Renvoie l'opposé du nombre flou paramétrique"""
+        
+        if self.get_types()[0] == 'Quad' :
+            
+            bas = array( [self.bas[1],self.bas[0]] )
+            
+        else :
+            
+            bas = self.bas
+            
+        if self.get_types()[1] == 'Quad' :
+            
+            haut = array( [self.haut[1],self.haut[0]] )
+            
+        else :
+            
+            haut = self.haut
+        
+        return NombreFlouPM( - haut, - bas, self.get_types()[1] + " - " + self.get_types()[0], self.para.parent())
+    
+    def __add__(self, autre):
+        
+        """Redéfinition de +"""
+        
+        if isinstance(autre,NombreFlou) or isinstance(autre,NombreFlouRed) : # si autre est un Nombre flou sous forme de tuple, l'opération s'effectue après avoir passé autre sous forme paramétrique
+            
+            copy_autre = autre.forme_parametrique()
+                      
+        else :
+            
+            copy_autre = autre
+        
+        if not self.famillesEgales(copy_autre):
+            print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            
+        else :
+            return NombreFlouPM(self.bas + copy_autre.bas, self.haut + copy_autre.haut, self.famille, self.para.parent())
+    
+    def __sub__(self, autre):
+        
+        """Redéfinition de -"""
+            
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+            
+            return self + -autre
+
+    
+    def __mul__(self, autre):
+       
+        """Redéfinition de *"""
+
+         # Premier cas : cas d'un produit par un scalaire ou un polynômeif isinstance(autre,float) :
+        
+        if not isinstance(autre, NombreFlouPM):
+            
+            if(autre < 0):
+                return NombreFlouPM(autre * self.haut, autre * self.bas, self.famille, self.para.parent())
+        
+            else :
+                return NombreFlouPM(autre * self.bas, autre * self.haut, self.famille, self.para.parent())
+
+            # Second cas : cas d'un produit par un autre nombre flou
+        
+        else:
+            if not self.famillesEgales(autre):
+                print("L'opération ne peut aboutir car les familles des opérandes sont différentes")
+            else:    
+                return NombreFlouPM( min(self.bas * autre.bas,self.bas * autre.haut,self.haut * autre.bas,self.haut * autre.haut) ,\
+                                mat(self.bas * autre.bas,self.bas * autre.haut,self.haut * autre.bas,self.haut * autre.haut),\
+                                self.famille, self.para.parent())
+            
+            
+    def __div__(self, autre):
+        
+        """Redéfinition de /"""
+        
+        if not self.famillesSymetriques(autre):
+            print("L'opération ne peut aboutir car les familles des opérandes ne sont pas symétriques")
+            
+        else :
+        
+            if  autre.bas(0) < 0 < autre.haut(0):
+                return NombreFlouPM( min(self.bas / autre.bas,self.bas / autre.haut,self.haut / autre.bas,self.haut / autre.haut) ,\
+                                mat(self.bas / autre.bas,self.bas / autre.haut,self.haut / autre.bas,self.haut / autre.haut),\
+                                self.famille, self.para.parent())
+            
+    def forme_tuple(cls,nombreFlouPM):
+        
+        
+        leftMode = nombreFlouPM.bas(1)
+        
+        rightMode = nombreFlouPM.haut(1) 
+        
+        leftSpread = (-1) * (nombreFlouPM.bas(0) - leftMode)
+        
+        rightSpread = (nombreFlouPM.haut(0) - rightMode)
+        
+        if(nombreFlouPM.famille == 'NombreFlouTrap') :
+            return NombreFlouTrap(leftMode, rightMode, leftSpread, rightSpread)
+
+        if(nombreFlouPM.famille == 'NombreFlouTri') :
+            return NombreFlouTri(leftMode, leftSpread, rightSpread)
+    
+
+    forme_tuple = classmethod(forme_tuple)
+    
+    def ff(self): 
+        r=self.para
+        Bas=self.bas
+        Haut=self.haut
+        return (Bas(r) + Haut(r) + Bas(1) + Haut(1))*r
+        #return (self.bas(r) + self.haut(r) + self.bas(1) + self.haut(1))*r
+    
+    def mag2(self):
+        return integral(self.ff(),r)
+    
+    def mag(self):
+        
+        r=self.para
+        
+        """Calcule la magnitude du nombre flou"""
+        
+        f=(self.bas(r) + self.haut(r) + self.bas(1) + self.haut(1))*r
+        
+        integrale = integral(f(r),r)
+        
+        res = truediv(integrale(1) - integrale(0),2)
+        
+        return res
+    
+    def momag(self):
+        
+        """Calcule la momagnitude du nombre flou"""
+        
+        f=(self.bas(r) - self.haut(r) + self.bas(1) - self.haut(1))
+        
+        integrale = integral(f(r),r)
+        
+        res = truediv(integrale(1) - integrale(0),2)
+        
+        return res
+    
+    def R(self, autre):
+        
+        """À partir de 2 nombres flous sous forme paramétrique A et B, calcule les quantités 
+        
+        R(A,lambda) = Mag(A) + lambda * Momag(A) et R(B,lambda) = Mag(B) + lambda * Momag(B),
+        
+        où lambda = 0 si Mag(A) != Mag(B)
+                    1 si Mag(A) == Mag(B) et z >= 0
+                    -1 si Mag(A) == Mag(B) et z < 0
+                    
+        avec z = (A.bas(1) + A.haut(1))/2
+        
+        et renvoie ces deut valeurs dans un tuple"""
+        
+        if (self.mag()!= autre.mag()) :
+            
+            return (self.mag(),autre.mag())
+        
+        else:
+            
+            z = truediv(self.bas(1) + self.haut(1),2)
+                  
+            if(z >=0):
+                
+                return (self.mag() + self.momag(), autre.mag() + autre.momag())
+            
+            else :
+                
+                 return (self.mag() - self.momag(), autre.mag() - autre.momag())
+        
+    
+    def __eq__(self, autre):
+        
+        """Redéfinition de =="""
+        
+        if(self.R(autre)[0] == self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __ne__(self, autre):
+        
+        """Redéfinition de !="""
+        
+        if(self.R(autre)[0] != self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __lt__(self, autre):
+        
+        """Redéfinition de <"""
+        
+        if(self.R(autre)[0] < self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __le__(self, autre):
+        
+        """Redéfinition de <="""
+        
+        if(self.R(autre)[0] <= self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __gt__(self, autre):
+        
+        """Redéfinition de >"""
+        
+        if(self.R(autre)[0] > self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def __ge__(self, autre):
+        
+        """Redéfinition de >="""
+        
+        if(self.R(autre)[0] >= self.R(autre)[1]) :
+            
+            return True
+        
+        else :
+            
+            return False
+        
+    def matimum(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le mat de deut nombres flous pour l'ordre total"""
+        
+        if nombreFlou1 == nombreFlou2 :
+            
+            print("Les deut nombres flous sont équivalents, renvoi du premier passé en paramètre")
+            
+            return nombreFlou1
+        
+        elif nombreFlou1 > nombreFlou2 :
+            
+            return nombreFlou1
+        
+        else :
+            
+            return nombreFlou2
+            
+    matimum = classmethod(matimum)
+    
+    def minimum(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le min de deut nombres flous pour l'ordre total"""
+        
+        if nombreFlou1 == nombreFlou2 :
+            
+            print("Les deut nombres flous sont équivalents, renvoi du premier passé en paramètre")
+            
+            return nombreFlou1
+        
+        elif nombreFlou1 < nombreFlou2 :
+            
+            return nombreFlou1
+        
+        else :
+            
+            return nombreFlou2
+            
+    minimum = classmethod(minimum)
+    
+    def mati(cls,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le mat de deut nombres flous pour l'ordre partiel"""
+        
+        if truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) == truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            
+            if nombreFlou1.bas(0) >= nombreFlou2.bas(0):
+                bas = nombreFlou1.bas
+                
+            else :
+                bas = nombreFlou2.bas
+                
+            if nombreFlou1.haut(0) >= nombreFlou2.haut(0):
+                haut = nombreFlou1.haut
+                
+            else :
+                haut = nombreFlou2.haut
+            
+            return NombreFlouPM(bas,haut)
+
+        elif truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) > truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            return nombreFlou1
+        
+        else :
+            return nombreFlou2
+        
+    mati = classmethod(mati)
+ 
+    def mini(csl,nombreFlou1,nombreFlou2) :
+        
+        """Renvoie le min de deut nombres flous pour l'ordre partiel"""
+        
+        if truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) == truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            
+            if nombreFlou1.bas(0) < nombreFlou2.bas(0):
+                bas = nombreFlou1.bas
+                
+            else :
+                bas = nombreFlou2.bas
+                
+            if nombreFlou1.haut(0) < nombreFlou2.haut(0):
+                haut = nombreFlou1.haut
+                
+            else :
+                haut = nombreFlou2.haut
+            
+            return NombreFlouPM(bas,haut)
+
+        elif truediv(nombreFlou1.haut(1)+nombreFlou1.bas(1),2) < truediv(nombreFlou2.haut(1)+nombreFlou2.bas(1),2):
+            return nombreFlou1
+        
+        else :
+            return nombreFlou2
+        
+    mini = classmethod(mini)
+    
+    def egale(self, autre):
+        
+        """Redéfinition de == comme ordre partiel"""
+        
+        if (self.bas == autre.bas) * (self.haut == autre.haut) :
+            return True
+        
+        else:
+            return False        
+        
+    def plusgrand(self,autre) :
+        
+        """Redéfinition de > comme ordre partiel"""
+        
+        matimum = NombreFlouPM.mati(self,autre)
+        
+        if(matimum == self):
+            return True
+     
+        elif(matimum == autre):
+            return False
+    
+        else:
+            print("Ces deut arguments ne sont pas comparables pour cette relation d'ordre partiel")
+            
+    def pluspetit(self,autre) :
+        
+        """Redéfinition de > comme ordre partiel"""
+        
+        minimum = NombreFlouPM.mini(self,autre)
+        
+        if(minimum == self):
+            return True
+     
+        elif(minimum == autre):
+            return False
+    
+        else:
+            print("Ces deut arguments ne sont pas comparables pour cette relation d'ordre partiel")
+                       
+    def trace(self):
+        
+        """Affichage graphique de la fonction d'appartenance du nombre flou en fonction des fonctions bas et haut"""
+        
+        if self.get_types()[0] == "Quad":
+            
+            G1 = plot(self.bas[0](t),(t,0,0.5),color='red')
+            
+            G2 = plot(self.bas[1](t),(t,0.5,1),color='red')
+            
+            G=G1+G2
+            
+            leftLim = self.bas[1](1)
+            
+        else:
+            
+            G = plot(self.bas(t),(t,0,1),color='red')
+            
+            leftLim = self.bas(1)
+            
+        if self.get_types()[1] == "Quad":
+            
+            D1 = plot(self.haut[0](t),(t,0.5,1),color='green')
+            
+            D2 = plot(self.haut[1](t),(t,0,0.5),color='green')
+            D=D1+D2
+            
+            rightLim = self.haut[0](1)
+            
+        else:
+            
+            D = plot(self.haut(t),(t,0,1),color='green')
+            
+            rightLim = self.haut(1)
+            
+        M = line([(1,rightLim), (1,leftLim)])
+        
+        return (G+M+D)
+    
+    def trace2(self):
+        
+        """Affichage graphique en MathLab de la fonction d'appartenance du nombre flou en fonction des fonctions bas et haut"""
+
+        t = np.arange(0.0, 1.0,0.001)
+        
+        if self.get_types()[0] == "Quad":
+            
+            bas1=self.bas[0]
+            bas2=self.bas[1]
+            print(bas2)
+            lg1 = plt.plot(t, bas1(t))
+            lg2 = plt.plot(t, bas2(t))
+        
+        else:
+            
+            lg = plt.plot(t, self.bas(t))
+        
+        if self.get_types()[1] == "Quad":
+ 
+            ld1 = plt.plot(t, self.haut[0](t))
+            ld2 = plt.plot(t, self.haut[1](t))
+        
+        else:
+            
+            ld = plt.plot(t, self.haut(t))                   
+
+def classe(p):
+    
+    """Retourne la classe d'un polynôme (le maximum parmi les indices des variables apparaissant dans p)"""
+    
+    if p.is_constant() :
+        v = n
+        
+    elif p.is_zero() :
+        v = n
+             
+    else :
+        
+        mon = p.lm()
+        
+        lv = [i for i in range(0, n) if mon.degrees()[i] > 0]
+        
+        if lv == [] :
+            v= n
+            
+        else :
+            
+            v = max(lv)
+            
+    return v
+
+def degre(p):
+    
+    """Retourne le degré d'un polynôme (le degré maximum en la variable dont l'indice est la classe de p, i.e. la variable principale de p)"""
+    
+    if p.is_zero():
+        
+        return -1
+
+    else :
+    
+        return (p.lm()).degrees()[classe(p)]
+
+def init(p):
+    
+    """Retourne le coefficient dominant en la variable principale de p"""
+    
+    return p.coefficient(var[classe(p)]**degre(p))
+
+def ordreRitt(a,b):
+    
+    """Renvoie 1 si a > b
+               0 si a = b
+               -1 si a < b
+       pour l'ordre de Ritt."""
+    
+    if a.is_zero() :
+        
+        if b.is_zero():      
+            return int(0)
+        
+        else :
+            return int(-1)
+    
+    if b.is_zero() :
+        return int(1)
+    
+    if a.is_constant() :
+        
+        if b.is_constant():      
+            return int(0)
+        
+        else :
+            return int(-1)
+    
+    if b.is_constant() :
+        return int(1)
+    
+    classe_a = classe(a)
+    classe_b = classe(b)
+    
+    diff_classes = classe_a - classe_b
+    
+    if not(diff_classes == 0):
+        return int(diff_classes / abs(diff_classes))
+                
+    else :
+        diff_degres = degre(a) - degre(b)
+        
+        if not(diff_degres == 0):
+            return int(diff_degres / abs(diff_degres))
+    
+        else:
+            return ordreRitt(a.coefficient(var[classe(a)]),b.coefficient(var[classe(b)]))
+
+def estReduit(a,b):
+    
+    """Renvoie True si a est réduit par rapport à b, et False sinon"""
+        
+    if b.is_constant():
+        return False
+    
+    return a.degree(var[classe(b)]) < degre(b)
+
+def basicSet(F):
+    
+    """Calcule un ensemble basique d'un ensemble de polynômes F"""
+    
+    B = []
+    
+    while F != []:
+              
+        b = F[0]
+        
+        
+        
+        if b.lc() != 1 and b.lc() !=0:
+            b = b/b.lc()
+
+        B.append(b)
+        
+        F = [f for f in F if estReduit(f,b)]
+            
+        
+        
+   
+    return B
+
+def tail(p):
+    
+    """Renvoie la queue d'un polynôme p, i.e. p - son terme dominant"""
+    
+    tail = p - init(p)*var[classe(p)]**degre(p)
+    
+    return tail
+
+def estConstant(p,i):
+    
+    """Renvoie True si p est constant en la variable d'indice i, et False sinon"""
+    
+    if classe(p) == i :
+        
+        return False
+    
+    if classe(p) == n or classe(p) < i :
+        
+        return True
+    
+    return estConstant(tail(p),i)    
+
+def pseudoDiv(p,f):
+    
+    """Effectue la pseudo-division de p par f
+    et renvoie la liste [quotient, reste, init(f), init(f)^j]"""
+    
+    v = var[classe(f)]
+        
+    q = 0
+        
+    deg_f = degre(f)
+        
+    deg_p = p.degree(var[classe(f)])
+        
+    h = init(f)
+        
+    g = tail(f)
+     
+    delta = deg_p - deg_f
+        
+    j = 0
+
+    while delta >= 0 :        
+        j +=1
+
+        aux = p.coefficient(var[classe(f)]**(p.degree(var[classe(f)])))
+        
+        q = h*q + aux *v**delta
+        p = h*p - aux*f*v**delta
+        deg_p = p.degree(var[classe(f)])
+        delta = deg_p - deg_f
+   
+    return [q,p,h**j,j]
+
+def premEnsTri(p,T):
+    
+    """Effectue la pseudo-division de p par tous les polynômes de l'ensemble T et renvoie le reste"""
+    
+    for i in range(len(T),0,-1):
+
+        p = pseudoDiv(p,T[i-1])[1]
+    
+    if p.lc() != 1 and p.lc() !=0:
+            p = p/p.lc()
+            
+    return p
+
+def PREM(F,B):
+    
+    """Effectue la pseudo-division de chaque polynôme de F par tous les polynômes de l'ensemble T et renvoie la liste des restes"""
+    
+    PREM = []
+    
+    for i in range(len(F)):
+        
+        PREM.append(premEnsTri(F[i],B))
+    
+    PREM.sort()    
+        
+    PREM.sort(ordreRitt)    
+        
+    return PREM
+
+def listeContientUneConstante(L):
+    
+    """Renvoie True si la liste contient une constante, et False sinon"""
+    
+    for i in range(0,len(L)):
+        
+        if L[i].is_constant():
+            
+            return True
+        
+        
+    return False
+
+def CharacSet(F) :
+    
+    """Calcule l'ensemble caractéristique de l'ensemble de polynômes F"""
+    
+    S = list(copy(F))
+    
+    B = basicSet(S)
+    
+    while PREM(F,B).count(0) != len(PREM(F,B)):
+        
+        
+       
+        S = set(S)
+        S = S.union(PREM(F,B))
+        if 0 in S:
+            S.remove(0)
+        S = list(S)
+        S.sort(ordreRitt)  
+                
+        if listeContientUneConstante(S):
+            
+            return [1]
+        
+        else:
+       
+            B = basicSet(S)
+        
+        
+    
+    
+    return B           
+
+def Wu(F):
+    
+    """Algorithme de Wu : calcul de l'ensemble des ensembles caractéristiques à partir du système F"""
+    
+    Z = []
+    D = [F]
+    
+    while D != []:
+        
+        
+        Ft = D[0]
+        D.remove(Ft)
+        
+        
+        
+        B = CharacSet(Ft)
+        
+        if B != [1] and B !=[-1]:
+            
+            Z.append(B)
+            
+            for b in B :
+                
+                liste = []
+                
+                if not init(b).is_constant():
+                
+                    ens_Ft = set(Ft)
+                
+                    ens_B = set(B)
+                    
+                    ensemble = ens_Ft | ens_B
+                    
+                    ensemble.add(init(b))
+                    
+                    liste=list(ensemble)
+                    liste.sort(ordreRitt)
+                                        
+                    D.append(liste)
+
+    return Z
+    
+    def syst_collecte(syst_dep,famille):
+    
+    """Calcul à partir d'un système de départ, le système tranché collecté"""
+    
+    syst_collecte = set()
+    
+    for equation in syst_dep:
+        
+        if not isinstance(equation[0],np.ndarray):
+            
+            membre_gauche = equation[0].forme_parametrique(A)
+            
+            membre_gauche = array([membre_gauche.bas,membre_gauche.haut])
+        
+        else :
+            membre_gauche = equation[0]
+        
+        if not isinstance(equation[1],np.ndarray):
+            
+            membre_droite = equation[1].forme_parametrique(A)
+            
+            membre_droite = array([membre_droite.bas,membre_droite.haut])
+        
+        else :
+            membre_droite = equation[1]
+            
+        equation_homogene = membre_gauche - membre_droite
+        print("EQUATION HOMOGENE:")
+        print(equation_homogene)
+         
+        if famille == 'Lin':
+
+            syst_collecte = syst_collecte.union((equation_homogene)[0].coefficients())
+            syst_collecte = syst_collecte.union((equation_homogene)[1].coefficients())
+        
+        if famille == 'Quad':
+            
+            syst_collecte = syst_collecte.union((equation_homogene)[0][0].coefficients())
+            syst_collecte = syst_collecte.union((equation_homogene)[0][1].coefficients())
+            syst_collecte = syst_collecte.union((equation_homogene)[1][0].coefficients())
+            syst_collecte = syst_collecte.union((equation_homogene)[1][1].coefficients())
+        
+        liste=list(syst_collecte)
+        liste.sort()
+  
+        
+    return liste
+
+def prodInit(B):
+    
+    "Renvoie le produit des initiaux des polynômes de l'ensemble B"
+    
+    prod = 1
+    
+    for b in B:
+        
+        prod*=init(b)
+        
+    produits_B = [prod]
+    
+    return produits_B
+
+def ensInit(Z):
+    
+    "Renvoie la liste des produits des initiaux pour chaque ensemble de Z"
+    
+    liste = []
+    
+    for ensemble in Z:
+        
+        liste.append(prodInit(ensemble))
+        
+    return liste
+
+def solveFuzzyPolynomialSystem(syst_depart,famille):
+    
+    """Algorithme principal de résolution de systèmes de polynômes à coefficients flous triangulaires"""
+    
+    collecte=syst_collecte(syst_depart,famille)
+    
+    print("Le système tranché collecté est composé des polynômes suivants :")
+    print(collecte)
+    print("Calcul de l'ensemble des ensembles caractéristiques du système tranché collecté :")
+    resultat = Wu(collecte)
+    return (resultat,ensInit(resultat))
+    
+    def binary_base(number):
+    
+    L = list()
+    if number == 0 :
+        return [0]
+
+    while number != 0:
+        if number %2 == 0:
+            number /=2
+            L.append(0)
+        else :
+            number -=1
+            number /=2
+            L.append(1)
+    L.reverse()
+    return L
+    
+    def MultiSigne(j,n):
+    
+    if(j < 2**n):
+    
+        I=binary_base(j)
+        
+        if(len(I)!=n):
+            I.reverse()
+            I.extend([0 for i in range(n-len(I))])
+            I.reverse()
+              
+        for i in range (len(I)):
+            if I[i]==0:
+                I[i]=-1
+        
+        return I
+        
+        def get_terms(System):
+
+    Terms = list()
+
+    for couple in System :
+            for liste in couple:
+                for element in liste :
+                    term = symbolic_expression(element[1])
+                    #print(element[1].parent())
+                    Terms.append(term)
+
+    return Terms
+    
+    def colonne_signee(Terms, I):
+
+    C = list()
+    for term in Terms:
+        variable_en_cours_devaluation = -1
+
+        while(term != 1 and term != -1):
+
+            variable_en_cours_devaluation +=1
+
+            term = term(I[variable_en_cours_devaluation])
+
+        term = Integer(term)
+        C.append(term)
+    return C
+    
+    def reconstruction_systems(System,I):
+    
+    Terms = get_terms(System)
+    #print(Terms)
+    liste_signes = colonne_signee(Terms, I)
+    #print(liste_signes)
+    signe = -1
+    System_signe = list()
+    for couple in System :
+        Tuple = list()
+        eq1 = eq2 = eq3 = 0
+        numero_liste = 0 # c'est la première liste du couple OU la deuxième
+                   
+        for liste in couple:
+            
+            numero_liste += 1
+            
+            for element in liste :
+                #print(element[1].parent())
+                signe +=1
+                #print(liste_signes[signe])
+                
+                #(numero_liste * (-2) + 3) : si numero_liste = 1 -> 1 et si = 2 -> -1, i.e. on passe le terme de droite de l'autre côté de l'équation            
+                eq1 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_mode() * element[1]
+                #print(eq1.parent())
+                eq2 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_leftSpread() * element[1]
+                
+                eq3 += (numero_liste * (-2) + 3) * liste_signes[signe] * element[0].get_rightSpread() * element[1]
+         
+        #p1 = eq1.polynomial(QQ,order ='invlex')
+        #p2 = eq2.polynomial(QQ,order ='invlex')
+        #p3 = eq3.polynomial(QQ,order ='invlex')
+        if eq1 != 0:
+            System_signe.append(eq1)
+        if eq2 != 0:
+            System_signe.append(eq2)
+        if eq3 != 0:
+            System_signe.append(eq3)
+            
+    System_signe=set(System_signe)
+    System_signe=list(System_signe)
+    return System_signe
+    
+    def listes_comparaison(c1, c2):
+    """
+    Fonction comparant les valeurs contenues dans deux tableaux deux à deux. La première valeur de c1 avec
+    celle de c2, puis la 2ème de c1 avec la deuxième de c2 etc...
+    """
+
+    if len(c1) != len(c2):
+        return False
+    
+    else:
+    
+        for valeur_c1, valeur_c2 in zip(c1, c2):
+            # si la valeur de c1 est différente de c2
+            if valeur_c1 != valeur_c2:
+                return False  # Les tableaux ne sont pas identiques
+        # S'il n'y a pas eu de discordance entre les deux listes, on arrive ici et on revoie donc True
+        return True
+        
+        def liste_deja_connue(L, ens_listes):
+    
+    cpt = -1
+    for liste in ens_listes:
+        cpt += 1
+        if listes_comparaison(L,liste):
+            return cpt
+        
+    return -1
+    
+    def normalise_systeme(Systeme):
+    
+    systeme_normalise = list()
+    
+    for equation in Systeme:
+        if equation.lc()/abs(equation.lc())==1:
+            systeme_normalise.append(equation)
+        else:
+            systeme_normalise.append(-1*equation)
+
+    return systeme_normalise
+
+def NouveauSysteme(systeme_SI, liste_systemes):
+    """Indique si le système systeme_SI est déjà présent dans la liste de systèmes liste_systemes"""
+    
+    systeme_SI = normalise_systeme(systeme_SI)
+    
+    cpt = -1
+    
+    ens_systeme_SI = set(systeme_SI)
+    
+    for systeme in liste_systemes:
+        cpt += 1
+        ens_systemes = set(systeme)
+        
+        if (ens_systeme_SI & ens_systemes) == (ens_systeme_SI | ens_systemes):
+            
+            return cpt
+    
+    
+    return -1        
+    
+    def resolution_reelle_systemes_flous(System, n):
+    
+    cpt = -1
+    
+    lb = list()
+    
+    sol = set()
+    
+    DistinctColonnes = list()
+    
+    ListeSystemes = list()
+    
+    for j in range (2**n):
+        I = MultiSigne(j,n)
+        affiche_gestion_de_signes(j,I)
+        print "ColonnesDistinctes = ",DistinctColonnes
+        print "ListeSystemes = ",ListeSystemes
+        
+        Terms = get_terms(System)
+        C = colonne_signee(Terms, I)
+        print "C = ",C
+        i = liste_deja_connue(C,DistinctColonnes)
+       
+        if i != -1:  
+            print "La colonne C est déjà présente dans ColonnesDistinctes à l'indice ", i
+            print "On ajoute dans sol le produit de Kronecker de I = ",I," avec lb[",i,"]"
+            sol = sol.union(kronecker_ens(I, lb[i]))
+            print "sol = ", sol
+            print "\n"
+            continue                
+            
+        print "La colonne C est une nouvelle colonne, cpt est incrémenté,",
+        cpt += 1
+        print "cpt = ",cpt," et on ajoute C à ColonnesDistinctes à l'indice ", cpt
+        DistinctColonnes.insert(cpt, C)
+        SI = reconstruction_systems(System,I)
+        print "S(I) =", SI
+        SI = normalise_systeme(SI)
+        
+        i = NouveauSysteme(SI,ListeSystemes)
+        
+        if i != -1:
+            print "Le système S(I) est déjà présent dans ListeSystemes à l'indice ", i
+            print "On ajoute dans sol le produit de Kronecker de I = ",I," avec lb[",i,"]"
+            sol = sol.union(kronecker_ens(I, lb[i]))
+            print "Les solutions positives présentes dans lb à l'indice ", i ," sont copiées à l'indice ",cpt
+            lb.insert(cpt,lb[i])
+            print "sol = ", sol
+            
+        else:
+            print "Le système S(I) est un nouveau système, on l'ajoute à ListeSystemes à l'indice ", cpt
+            SI = normalise_systeme(SI)
+            ListeSystemes.append(SI)
+            print "On résout S(I)"
+            sol_pos = SolPos(SI)
+            print "Solutions positives de S(I) :", sol_pos
+            print "On insère ces solutions dans lb à  l'incide", cpt
+            lb.insert(cpt, sol_pos)
+            print "On ajoute dans sol le produit de Kronecker de I = ",I," avec lb[",cpt,"]"
+            sol = sol.union(kronecker_ens(I, lb[cpt]))
+            print "sol = ", sol
+        print "\n"
+    return sol
+    
+    def kronecker_product(L1, L2):
+    Res = list(0 for i in range(len(L1)))
+    for i in range(len(L1)):
+        if L1[i]==-1 and L2[i]=="R+":
+            Res[i]="R-"
+        elif L2[i] not in RR:
+            Res[i]=L2[i]
+        else:
+            Res[i]=L1[i]*L2[i]
+    Res=tuple(Res)
+    return Res
+    
+    def SolPos(systeme):
+    
+    ens_ens_car = Wu(systeme)
+    
+    zeros_B = set(get_zeros(ens_ens_car)) # on recupere les zeros de Z, l'ensemble des ensembles caracteristiques B
+    #print "V(B) =", zeros_B
+    zeros_I_B = set(get_zeros(ensInit(ens_ens_car))) # on recupere les zeros des I_B, où I_B est le produit des initiaux des elements de B
+    #print "V(I_B) =", zeros_I_B
+    zeros = zeros_B.difference(zeros_I_B) # zeros = V(B)/V(I_B)
+    
+    return zeros
+
+def get_zeros(result):
+    
+    solution_positives = list()
+    x_symb = symbolic_expression(x)
+    y_symb = symbolic_expression(y)
+    for ens_car in result:
+        symbolic_ens_car = list()
+
+        for polynome in ens_car:
+            if polynome not in RR:
+                res_symbolic = symbolic_expression(polynome)
+                symbolic_ens_car.append(res_symbolic)
+        
+        solutions_reelles=solve(symbolic_ens_car,x_symb,y_symb)
+        
+        assume(x_symb>=0)
+        assume(y_symb>=0)
+        if len(solutions_reelles)>0:
+            for solution in solutions_reelles:
+                
+      
+                existence_sol_x = False
+                for sol_1 in solution:
+                    if(sol_1 not in RR):
+                        if (sol_1.lhs()==x):
+                            existence_sol_x = True
+                            if(sol_1.rhs()>=0):
+                                sol_x = sol_1.rhs()
+                        
+                        
+                                existence_sol_y = False
+                        
+                                for sol_2 in solution:
+                                    if(sol_2 not in RR):
+                                        if (sol_2.lhs()==y):
+                                            existence_sol_y = True
+                                            if (sol_2.rhs()>=0):
+                                                sol_y = sol_2.rhs()
+                                                couple_solutions=(sol_x,sol_y)
+                                                solution_positives.append(couple_solutions)
+                                if existence_sol_y == False:
+                                    sol_y = 'R+'
+                                    couple_solutions=(sol_x,sol_y)
+                                    solution_positives.append(couple_solutions)
+                                
+                if existence_sol_x == False:
+                    sol_x = 'R+'
+                    existence_sol_y = False
+                    for sol_2 in solution:
+                        if(sol_2 not in RR):
+                            if (sol_2.lhs()==y):
+                                existence_sol_y = True
+                                if (sol_2.rhs()>=0):
+                                    sol_y = sol_2.rhs()
+                                    couple_solutions=(sol_x,sol_y)
+                                    solution_positives.append(couple_solutions)
+    forget()
+    return solution_positives
+    
+    def kronecker_ens(element1, ensemble):
+    
+    resultat = set()
+    for element2 in ensemble:
+        resultat.add(kronecker_product(element1,element2))
+       
+
+    return resultat
+        
+    def affiche_gestion_de_signes(j,I):
+    print "Pour j = ", j," : ",
+    print "I = ",I,", ",
+    
+    if I[0]==-1:
+        print "x négatif ",
+    else:
+        print "x positif ",
+    print "et ",
+    if I[1]==-1:
+        print "y négatif "
+    else:
+        print "y positif "
