@@ -1854,5 +1854,3 @@ def SolvingFuzzySystem(System, n):
             sol.insert(j,sol[i])
             
     return sol 
-
-
