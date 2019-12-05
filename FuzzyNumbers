@@ -1690,7 +1690,7 @@ def get_terms(System):
 
     return Terms
     
-def signed_column(Terms, I):
+def SignColumn(Terms, I):
 
     C = list()
     for term in Terms:
@@ -1710,7 +1710,7 @@ def reconstruction_systems(System,I):
     
     Terms = get_terms(System)
     #print(Terms)
-    liste_signes = signed_column(Terms, I)
+    liste_signes = SignColumn(Terms, I)
     #print(liste_signes)
     signe = -1
     System_signe = list()
@@ -1826,7 +1826,7 @@ def SolvingFuzzySystem(System, n):
         I = MultiSign(j,n)
         
         Terms = get_terms(System)
-        C = signed_column(Terms, I)
+        C = SignColumn(Terms, I)
         
         for i in range(cpt):
             if listes_comparison(C,DistinctColumns[i]):
@@ -1854,3 +1854,5 @@ def SolvingFuzzySystem(System, n):
             sol.insert(j,sol[i])
             
     return sol 
+
+
